@@ -1,0 +1,32 @@
+{
+  "name": "chronostek",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.34.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @chronostek/api --filter @chronostek/web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "pnpm --filter @chronostek/database prisma:generate",
+    "db:migrate": "pnpm --filter @chronostek/database prisma:migrate",
+    "db:deploy": "pnpm --filter @chronostek/database prisma:deploy",
+    "db:seed": "pnpm --filter @chronostek/database prisma:seed",
+    "db:studio": "pnpm --filter @chronostek/database prisma:studio",
+    "db:local:start": "powershell -ExecutionPolicy Bypass -File scripts/dev-db.ps1 start",
+    "db:local:stop": "powershell -ExecutionPolicy Bypass -File scripts/dev-db.ps1 stop",
+    "db:local:status": "powershell -ExecutionPolicy Bypass -File scripts/dev-db.ps1 status"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "prettier": "^3.5.3",
+    "prettier-plugin-tailwindcss": "^0.6.14",
+    "typescript": "^5.8.3"
+  }
+}

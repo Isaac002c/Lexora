@@ -1,0 +1,11 @@
+-- Runtime privileges are granted only when the production application role exists.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'chronostek_app') THEN
+    GRANT USAGE ON SCHEMA public, app TO chronostek_app;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO chronostek_app;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO chronostek_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO chronostek_app;
+    ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO chronostek_app;
+  END IF;
+END $$;

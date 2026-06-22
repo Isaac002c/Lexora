@@ -1,0 +1,4 @@
+import { PageHeader } from "@/components/page-header";
+import { ModuleNav } from "@/features/shared/components/module-nav";
+import { FinanceContractsTable } from "@/features/financeiro/components/finance-contracts-table";
+export default async function InstallmentsPage({ searchParams }: { searchParams: Promise<{ search?: string; page?: string; view?: "upcoming" | "overdue" | "paid" }> }) { const query = await searchParams; return <><PageHeader eyebrow="Contas a receber" title="Parcelas" description="Vencimentos, pagamentos e comprovantes." /><ModuleNav items={[{ label: "Todas", href: "/financeiro/parcelas" }, { label: "A vencer", href: "/financeiro/parcelas?view=upcoming" }, { label: "Vencidas", href: "/financeiro/parcelas?view=overdue" }, { label: "Pagas", href: "/financeiro/parcelas?view=paid" }]} /><FinanceContractsTable view={query.view} search={query.search} page={query.page} /></>; }

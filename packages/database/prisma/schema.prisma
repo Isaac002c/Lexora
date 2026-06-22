@@ -1,0 +1,790 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+}
+
+enum ClientStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum AttendanceStatus {
+  NOVO
+  EM_TRIAGEM
+  AGUARDANDO_DOCUMENTOS
+  DIRECIONADO
+  CONVERTIDO_EM_PROCESSO
+  ENCERRADO
+}
+
+enum CaseStatus {
+  EM_ANALISE
+  AGUARDANDO_DOCUMENTOS
+  AGUARDANDO_CONTRATO
+  AGUARDANDO_PAGAMENTO
+  PETICAO_INICIAL
+  PRONTO_PARA_DISTRIBUICAO
+  DISTRIBUIDO
+  EM_ANDAMENTO
+  FINALIZADO
+  ARQUIVADO
+}
+
+enum AssignmentType {
+  INTERNAL_OWNER
+  ATTORNEY
+  COLLABORATOR
+}
+
+enum DeadlineType {
+  PETICAO_INICIAL
+  AUDIENCIA
+  RECURSO
+  MANIFESTACAO
+  ADMINISTRATIVO
+  OUTRO
+}
+
+enum DeadlinePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum DeadlineStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentStatus {
+  PENDING
+  RECEIVED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ARCHIVED
+}
+
+enum ChecklistItemStatus {
+  PENDENTE
+  RECEBIDO
+  ANALISADO
+  RECUSADO
+  NAO_SE_APLICA
+}
+
+enum StorageDriver {
+  LOCAL
+  S3
+}
+
+enum FeeContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentTiming {
+  UPFRONT
+  END_OF_CASE
+  INSTALLMENTS
+}
+
+enum PaymentMethod {
+  CASH
+  PIX
+  BANK_TRANSFER
+  CREDIT_CARD
+  DEBIT_CARD
+  BOLETO_MANUAL
+  OTHER
+}
+
+enum InstallmentStatus {
+  PENDING
+  PAID
+  CANCELLED
+}
+
+enum NotificationType {
+  DEADLINE
+  DOCUMENT
+  FINANCIAL
+  SYSTEM
+}
+
+model Tenant {
+  id        String       @id @default(uuid()) @db.Uuid
+  legalName String       @map("legal_name")
+  tradeName String       @map("trade_name")
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+  timezone  String       @default("America/Sao_Paulo")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  settings               TenantSettings?
+  branches               Branch[]
+  users                  User[]
+  roles                  Role[]
+  permissions            Permission[]
+  userRoles              UserRole[]
+  rolePermissions        RolePermission[]
+  branchAccesses         UserBranchAccess[]
+  legalAreas             LegalArea[]
+  clients                Client[]
+  attendances            Attendance[]
+  cases                  LegalCase[]
+  caseParties            CaseParty[]
+  caseAssignments        CaseAssignment[]
+  deadlines              Deadline[]
+  files                  StoredFile[]
+  documents              Document[]
+  checklistTemplates     ChecklistTemplate[]
+  checklistTemplateItems ChecklistTemplateItem[]
+  caseChecklists         CaseChecklist[]
+  checklistItems         ChecklistItem[]
+  feeContracts           FeeContract[]
+  installments           PaymentInstallment[]
+  sessions               Session[]
+  auditLogs              AuditLog[]
+  notifications          Notification[]
+
+  @@map("tenants")
+}
+
+model TenantSettings {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @unique @map("tenant_id") @db.Uuid
+  logoFileId   String?  @map("logo_file_id") @db.Uuid
+  primaryColor String   @default("#06B6D4") @map("primary_color")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  website      String?
+  address      Json?
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_settings")
+}
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  code      String
+  email     String?
+  phone     String?
+  address   Json?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userAccesses  UserBranchAccess[]
+  clients       Client[]
+  attendances   Attendance[]
+  cases         LegalCase[]
+  deadlines     Deadline[]
+  documents     Document[]
+  feeContracts  FeeContract[]
+  notifications Notification[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("branches")
+}
+
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  tenantId            String     @map("tenant_id") @db.Uuid
+  name                String
+  email               String
+  emailNormalized     String     @map("email_normalized")
+  passwordHash        String     @map("password_hash")
+  status              UserStatus @default(INVITED)
+  hasAllBranches      Boolean    @default(false) @map("has_all_branches")
+  forcePasswordChange Boolean    @default(true) @map("force_password_change")
+  phone               String?
+  barRegistration     String?    @map("bar_registration")
+  lastLoginAt         DateTime?  @map("last_login_at") @db.Timestamptz(3)
+  createdAt           DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt          DateTime?  @map("archived_at") @db.Timestamptz(3)
+
+  tenant                   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles                    UserRole[]
+  branchAccesses           UserBranchAccess[]
+  sessions                 Session[]
+  clientResponsibilities   Client[]             @relation("ClientResponsible")
+  attendanceAttorneys      Attendance[]         @relation("AttendanceAttorney")
+  caseAssignments          CaseAssignment[]
+  deadlineResponsibilities Deadline[]           @relation("DeadlineResponsible")
+  uploadedFiles            StoredFile[]         @relation("FileUploader")
+  uploadedDocuments        Document[]           @relation("DocumentUploader")
+  checklistUpdates         ChecklistItem[]      @relation("ChecklistUpdater")
+  recordedPayments         PaymentInstallment[] @relation("PaymentRecorder")
+  auditLogs                AuditLog[]           @relation("AuditActor")
+  notifications            Notification[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, emailNormalized])
+  @@index([tenantId, status])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false) @map("is_system")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  code        String
+  description String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  roles  RolePermission[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@map("permissions")
+}
+
+model UserRole {
+  tenantId String @map("tenant_id") @db.Uuid
+  userId   String @map("user_id") @db.Uuid
+  roleId   String @map("role_id") @db.Uuid
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+  role   Role   @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([tenantId, userId, roleId])
+  @@index([tenantId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  tenantId     String @map("tenant_id") @db.Uuid
+  roleId       String @map("role_id") @db.Uuid
+  permissionId String @map("permission_id") @db.Uuid
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Cascade)
+  permission Permission @relation(fields: [tenantId, permissionId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([tenantId, roleId, permissionId])
+  @@index([tenantId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserBranchAccess {
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  branchId  String   @map("branch_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+  branch Branch @relation(fields: [tenantId, branchId], references: [tenantId, id], onDelete: Cascade)
+
+  @@id([tenantId, userId, branchId])
+  @@index([tenantId, branchId])
+  @@map("user_branch_access")
+}
+
+model LegalArea {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  code        String
+  description String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attendances        Attendance[]
+  cases              LegalCase[]
+  deadlines          Deadline[]
+  checklistTemplates ChecklistTemplate[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, isActive])
+  @@map("legal_areas")
+}
+
+model Client {
+  id                String       @id @default(uuid()) @db.Uuid
+  tenantId          String       @map("tenant_id") @db.Uuid
+  primaryBranchId   String       @map("primary_branch_id") @db.Uuid
+  responsibleUserId String?      @map("responsible_user_id") @db.Uuid
+  type              ClientType   @default(INDIVIDUAL)
+  name              String
+  searchName        String       @map("search_name")
+  email             String?
+  phone             String?
+  taxIdEncrypted    String?      @map("tax_id_encrypted")
+  taxIdHash         String?      @map("tax_id_hash")
+  taxIdLast4        String?      @map("tax_id_last4")
+  identityEncrypted String?      @map("identity_encrypted")
+  birthDate         DateTime?    @map("birth_date") @db.Date
+  address           Json?
+  notes             String?
+  status            ClientStatus @default(ACTIVE)
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt        DateTime?    @map("archived_at") @db.Timestamptz(3)
+
+  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryBranch   Branch        @relation(fields: [tenantId, primaryBranchId], references: [tenantId, id])
+  responsibleUser User?         @relation("ClientResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id])
+  attendances     Attendance[]
+  caseParties     CaseParty[]
+  deadlines       Deadline[]
+  documents       Document[]
+  feeContracts    FeeContract[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, taxIdHash])
+  @@index([tenantId, primaryBranchId, status])
+  @@index([tenantId, searchName])
+  @@index([tenantId, email])
+  @@map("clients")
+}
+
+model Attendance {
+  id              String           @id @default(uuid()) @db.Uuid
+  tenantId        String           @map("tenant_id") @db.Uuid
+  branchId        String           @map("branch_id") @db.Uuid
+  legalAreaId     String?          @map("legal_area_id") @db.Uuid
+  attorneyId      String?          @map("attorney_id") @db.Uuid
+  clientId        String?          @map("client_id") @db.Uuid
+  convertedCaseId String?          @map("converted_case_id") @db.Uuid
+  clientName      String           @map("client_name")
+  phone           String?
+  email           String?
+  occurredAt      DateTime         @map("occurred_at") @db.Timestamptz(3)
+  origin          String?
+  notes           String?
+  status          AttendanceStatus @default(NOVO)
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch        Branch     @relation(fields: [tenantId, branchId], references: [tenantId, id])
+  legalArea     LegalArea? @relation(fields: [tenantId, legalAreaId], references: [tenantId, id])
+  attorney      User?      @relation("AttendanceAttorney", fields: [tenantId, attorneyId], references: [tenantId, id])
+  client        Client?    @relation(fields: [tenantId, clientId], references: [tenantId, id])
+  convertedCase LegalCase? @relation("AttendanceConvertedCase", fields: [tenantId, convertedCaseId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, convertedCaseId])
+  @@index([tenantId, branchId, status, occurredAt])
+  @@index([tenantId, clientName])
+  @@map("attendances")
+}
+
+model LegalCase {
+  id                   String     @id @default(uuid()) @db.Uuid
+  tenantId             String     @map("tenant_id") @db.Uuid
+  branchId             String     @map("branch_id") @db.Uuid
+  legalAreaId          String     @map("legal_area_id") @db.Uuid
+  caseType             String     @map("case_type")
+  processNumber        String?    @map("process_number")
+  processNumberSearch  String?    @map("process_number_search")
+  status               CaseStatus @default(EM_ANALISE)
+  entryDate            DateTime   @map("entry_date") @db.Date
+  distributionDate     DateTime?  @map("distribution_date") @db.Date
+  initialPetitionDueAt DateTime?  @map("initial_petition_due_at") @db.Timestamptz(3)
+  hearingAt            DateTime?  @map("hearing_at") @db.Timestamptz(3)
+  appealDueAt          DateTime?  @map("appeal_due_at") @db.Timestamptz(3)
+  lastProgress         String?    @map("last_progress")
+  lastProgressAt       DateTime?  @map("last_progress_at") @db.Timestamptz(3)
+  notes                String?
+  createdAt            DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt           DateTime?  @map("archived_at") @db.Timestamptz(3)
+
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch           Branch           @relation(fields: [tenantId, branchId], references: [tenantId, id])
+  legalArea        LegalArea        @relation(fields: [tenantId, legalAreaId], references: [tenantId, id])
+  sourceAttendance Attendance?      @relation("AttendanceConvertedCase")
+  parties          CaseParty[]
+  assignments      CaseAssignment[]
+  deadlines        Deadline[]
+  documents        Document[]
+  checklists       CaseChecklist[]
+  feeContracts     FeeContract[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, processNumberSearch])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, legalAreaId, status])
+  @@map("legal_cases")
+}
+
+model CaseParty {
+  tenantId  String  @map("tenant_id") @db.Uuid
+  caseId    String  @map("case_id") @db.Uuid
+  clientId  String  @map("client_id") @db.Uuid
+  role      String  @default("CLIENT")
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  case   LegalCase @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Cascade)
+  client Client    @relation(fields: [tenantId, clientId], references: [tenantId, id])
+
+  @@id([tenantId, caseId, clientId])
+  @@index([tenantId, clientId])
+  @@map("case_parties")
+}
+
+model CaseAssignment {
+  id        String         @id @default(uuid()) @db.Uuid
+  tenantId  String         @map("tenant_id") @db.Uuid
+  caseId    String         @map("case_id") @db.Uuid
+  userId    String         @map("user_id") @db.Uuid
+  type      AssignmentType
+  isPrimary Boolean        @default(false) @map("is_primary")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  case   LegalCase @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Cascade)
+  user   User      @relation(fields: [tenantId, userId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, caseId, userId, type])
+  @@index([tenantId, userId, type])
+  @@map("case_assignments")
+}
+
+model Deadline {
+  id                String           @id @default(uuid()) @db.Uuid
+  tenantId          String           @map("tenant_id") @db.Uuid
+  branchId          String           @map("branch_id") @db.Uuid
+  caseId            String           @map("case_id") @db.Uuid
+  clientId          String           @map("client_id") @db.Uuid
+  legalAreaId       String           @map("legal_area_id") @db.Uuid
+  responsibleUserId String           @map("responsible_user_id") @db.Uuid
+  title             String
+  type              DeadlineType
+  dueAt             DateTime         @map("due_at") @db.Timestamptz(3)
+  priority          DeadlinePriority @default(NORMAL)
+  status            DeadlineStatus   @default(PENDING)
+  notes             String?
+  completedAt       DateTime?        @map("completed_at") @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch          Branch    @relation(fields: [tenantId, branchId], references: [tenantId, id])
+  case            LegalCase @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Cascade)
+  client          Client    @relation(fields: [tenantId, clientId], references: [tenantId, id])
+  legalArea       LegalArea @relation(fields: [tenantId, legalAreaId], references: [tenantId, id])
+  responsibleUser User      @relation("DeadlineResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, status, dueAt])
+  @@index([tenantId, responsibleUserId, status, dueAt])
+  @@map("deadlines")
+}
+
+model StoredFile {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  uploadedById String        @map("uploaded_by_id") @db.Uuid
+  driver       StorageDriver @default(LOCAL)
+  objectKey    String        @map("object_key")
+  originalName String        @map("original_name")
+  mimeType     String        @map("mime_type")
+  sizeBytes    BigInt        @map("size_bytes")
+  checksum     String
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(3)
+
+  tenant     Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  uploadedBy User      @relation("FileUploader", fields: [tenantId, uploadedById], references: [tenantId, id])
+  document   Document?
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, objectKey])
+  @@map("stored_files")
+}
+
+model Document {
+  id           String         @id @default(uuid()) @db.Uuid
+  tenantId     String         @map("tenant_id") @db.Uuid
+  branchId     String         @map("branch_id") @db.Uuid
+  clientId     String?        @map("client_id") @db.Uuid
+  caseId       String?        @map("case_id") @db.Uuid
+  storedFileId String?        @map("stored_file_id") @db.Uuid
+  uploadedById String         @map("uploaded_by_id") @db.Uuid
+  name         String
+  type         String
+  status       DocumentStatus @default(RECEIVED)
+  notes        String?
+  sentAt       DateTime       @default(now()) @map("sent_at") @db.Timestamptz(3)
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch     Branch      @relation(fields: [tenantId, branchId], references: [tenantId, id])
+  client     Client?     @relation(fields: [tenantId, clientId], references: [tenantId, id])
+  case       LegalCase?  @relation(fields: [tenantId, caseId], references: [tenantId, id])
+  storedFile StoredFile? @relation(fields: [tenantId, storedFileId], references: [tenantId, id])
+  uploadedBy User        @relation("DocumentUploader", fields: [tenantId, uploadedById], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, storedFileId])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, clientId])
+  @@index([tenantId, caseId])
+  @@map("documents")
+}
+
+model ChecklistTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  legalAreaId String   @map("legal_area_id") @db.Uuid
+  name        String
+  caseType    String?  @map("case_type")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  legalArea LegalArea               @relation(fields: [tenantId, legalAreaId], references: [tenantId, id])
+  items     ChecklistTemplateItem[]
+  instances CaseChecklist[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, legalAreaId, isActive])
+  @@map("checklist_templates")
+}
+
+model ChecklistTemplateItem {
+  id          String  @id @default(uuid()) @db.Uuid
+  tenantId    String  @map("tenant_id") @db.Uuid
+  templateId  String  @map("template_id") @db.Uuid
+  title       String
+  description String?
+  isRequired  Boolean @default(true) @map("is_required")
+  position    Int
+
+  tenant   Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  template ChecklistTemplate @relation(fields: [tenantId, templateId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, templateId, position])
+  @@map("checklist_template_items")
+}
+
+model CaseChecklist {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  caseId     String   @map("case_id") @db.Uuid
+  templateId String?  @map("template_id") @db.Uuid
+  name       String
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant   Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  case     LegalCase          @relation(fields: [tenantId, caseId], references: [tenantId, id], onDelete: Cascade)
+  template ChecklistTemplate? @relation(fields: [tenantId, templateId], references: [tenantId, id])
+  items    ChecklistItem[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, caseId])
+  @@map("case_checklists")
+}
+
+model ChecklistItem {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  checklistId String              @map("checklist_id") @db.Uuid
+  updatedById String?             @map("updated_by_id") @db.Uuid
+  title       String
+  description String?
+  isRequired  Boolean             @default(true) @map("is_required")
+  position    Int
+  status      ChecklistItemStatus @default(PENDENTE)
+  notes       String?
+  receivedAt  DateTime?           @map("received_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checklist CaseChecklist @relation(fields: [tenantId, checklistId], references: [tenantId, id], onDelete: Cascade)
+  updatedBy User?         @relation("ChecklistUpdater", fields: [tenantId, updatedById], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, checklistId, position])
+  @@map("checklist_items")
+}
+
+model FeeContract {
+  id               String            @id @default(uuid()) @db.Uuid
+  tenantId         String            @map("tenant_id") @db.Uuid
+  branchId         String            @map("branch_id") @db.Uuid
+  clientId         String            @map("client_id") @db.Uuid
+  caseId           String?           @map("case_id") @db.Uuid
+  feeAmount        Decimal           @map("fee_amount") @db.Decimal(14, 2)
+  costAmount       Decimal           @default(0) @map("cost_amount") @db.Decimal(14, 2)
+  paymentMethod    PaymentMethod     @map("payment_method")
+  paymentTiming    PaymentTiming     @map("payment_timing")
+  installmentCount Int               @default(1) @map("installment_count")
+  status           FeeContractStatus @default(DRAFT)
+  signedAt         DateTime?         @map("signed_at") @db.Date
+  notes            String?
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branch       Branch               @relation(fields: [tenantId, branchId], references: [tenantId, id])
+  client       Client               @relation(fields: [tenantId, clientId], references: [tenantId, id])
+  case         LegalCase?           @relation(fields: [tenantId, caseId], references: [tenantId, id])
+  installments PaymentInstallment[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, branchId, status])
+  @@index([tenantId, clientId])
+  @@map("fee_contracts")
+}
+
+model PaymentInstallment {
+  id                  String            @id @default(uuid()) @db.Uuid
+  tenantId            String            @map("tenant_id") @db.Uuid
+  contractId          String            @map("contract_id") @db.Uuid
+  paymentProofFileId  String?           @map("payment_proof_file_id") @db.Uuid
+  paymentRecordedById String?           @map("payment_recorded_by_id") @db.Uuid
+  installmentNumber   Int               @map("installment_number")
+  amount              Decimal           @db.Decimal(14, 2)
+  dueDate             DateTime          @map("due_date") @db.Date
+  status              InstallmentStatus @default(PENDING)
+  paidAt              DateTime?         @map("paid_at") @db.Timestamptz(3)
+  notes               String?
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant            Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contract          FeeContract @relation(fields: [tenantId, contractId], references: [tenantId, id], onDelete: Cascade)
+  paymentRecordedBy User?       @relation("PaymentRecorder", fields: [tenantId, paymentRecordedById], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, contractId, installmentNumber])
+  @@index([tenantId, status, dueDate])
+  @@map("payment_installments")
+}
+
+model Session {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  tokenHash     String    @unique @map("token_hash")
+  expiresAt     DateTime  @map("expires_at") @db.Timestamptz(3)
+  idleExpiresAt DateTime  @map("idle_expires_at") @db.Timestamptz(3)
+  lastSeenAt    DateTime  @default(now()) @map("last_seen_at") @db.Timestamptz(3)
+  ipAddress     String?   @map("ip_address")
+  userAgent     String?   @map("user_agent")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt     DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  actorUserId String?  @map("actor_user_id") @db.Uuid
+  entityType  String   @map("entity_type")
+  entityId    String   @map("entity_id") @db.Uuid
+  action      String
+  description String
+  metadata    Json?
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor  User?  @relation("AuditActor", fields: [tenantId, actorUserId], references: [tenantId, id])
+
+  @@index([tenantId, entityType, entityId, createdAt])
+  @@index([tenantId, actorUserId, createdAt])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  tenantId   String           @map("tenant_id") @db.Uuid
+  userId     String           @map("user_id") @db.Uuid
+  branchId   String?          @map("branch_id") @db.Uuid
+  type       NotificationType
+  title      String
+  message    String
+  entityType String?          @map("entity_type")
+  entityId   String?          @map("entity_id") @db.Uuid
+  readAt     DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt  DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Cascade)
+  branch Branch? @relation(fields: [tenantId, branchId], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@index([tenantId, userId, readAt, createdAt])
+  @@map("notifications")
+}

@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: chronostek
+      POSTGRES_USER: chronostek
+      POSTGRES_PASSWORD: chronostek
+    ports:
+      - "5432:5432"
+    volumes:
+      - chronostek_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chronostek -d chronostek"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  chronostek_postgres:
