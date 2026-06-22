@@ -1,5 +1,17 @@
+const TIMEZONE = "America/Sao_Paulo";
+
+// Datas puras (`@db.Date`) chegam como meia-noite UTC: formatá-las em UTC
+// preserva o dia armazenado e evita o "erro de um dia". Datas com hora
+// (`Timestamptz`) são instantes reais e são exibidas no fuso de São Paulo.
 export const formatDate = (value: string | Date | null | undefined, withTime = false) =>
-  value ? new Intl.DateTimeFormat("pt-BR", withTime ? { dateStyle: "short", timeStyle: "short" } : { dateStyle: "short" }).format(new Date(value)) : "—";
+  value
+    ? new Intl.DateTimeFormat(
+        "pt-BR",
+        withTime
+          ? { dateStyle: "short", timeStyle: "short", timeZone: TIMEZONE }
+          : { dateStyle: "short", timeZone: "UTC" },
+      ).format(new Date(value))
+    : "—";
 
 export const formatMoney = (value: string | number | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));

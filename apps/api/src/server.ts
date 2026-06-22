@@ -5,6 +5,11 @@ import { config as loadEnv } from "dotenv";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
+// Janelas de data (prazos "hoje"/"próximos N dias", início de mês no painel)
+// usam o relógio do processo. Fixamos o fuso em São Paulo para alinhar com a
+// operação brasileira; pode ser sobrescrito por TZ no ambiente.
+process.env.TZ = process.env.TZ ?? "America/Sao_Paulo";
+
 for (const candidate of [resolve(process.cwd(), ".env"), resolve(process.cwd(), "../..", ".env")]) {
   if (existsSync(candidate)) {
     loadEnv({ path: candidate });
