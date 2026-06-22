@@ -1,3 +1,7 @@
+> ⚠️ **Status operacional atualizado em `docs/STATUS_MVP_LEXORA_30_JUNHO.md`** (auditoria de 2026-06-22).
+> Esta matriz descreve o *escopo de código*; o documento de status é a fonte de verdade sobre o que está
+> realmente validado e operacional para a entrega de 30/06.
+
 # Matriz do MVP Chronostek
 
 ## Entregue

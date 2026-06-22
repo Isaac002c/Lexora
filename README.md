@@ -29,9 +29,9 @@ No Windows PowerShell, use `Copy-Item .env.example .env` no lugar de `cp`.
 ### Acesso de demonstração
 
 - Tenant: `demo-chronostek`
-- Administrador: `douglas@demo.chronostek.com.br`
-- Senha: `Chronostek@2026!`
-- Demais usuários do seed: senha inicial `Chronostek@123` com troca obrigatória no primeiro acesso.
+- Senha inicial de todos os usuários do seed: `Chronostek@123`
+- Administradores (entram direto, sem troca de senha): `douglas@demo.chronostek.com.br` e `marina@demo.chronostek.com.br`
+- Demais perfis (secretaria, advogado, financeiro, visualizador): trocam a senha obrigatoriamente no primeiro acesso.
 
 ### Banco local sem Docker
 
