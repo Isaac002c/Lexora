@@ -120,6 +120,8 @@
 | `GET /api/v1/dashboard` (com cookie) | dados reais | clients=1, activeCases=1, **estimatedRevenue=9000.00** | ✅ BFF injeta o token e faz proxy |
 | `GET /dashboard` (com cookie) | 200 SSR | **200** | ✅ página autenticada renderiza |
 | `GET /api/v1/dashboard` (sem cookie) | 401 | **401** | ✅ BFF exige sessão |
+| **Secretaria** `POST /api/v1/clients` (cria cliente) | 201 | **201** + `id` | ✅ escrita real persistida (create→read confirma 2 clientes) |
+| **Secretaria** `POST /api/v1/admin/branches` | 403 | **403** | ✅ perfil sem `branch.manage` negado na pilha completa |
 
 > **Pilha completa provada em clone limpo:** Browser → Next.js (SSR + BFF) → Express → PostgreSQL (RLS)
 > → dados reais. O token de sessão fica apenas no cookie HttpOnly; a UI nunca o manipula.
