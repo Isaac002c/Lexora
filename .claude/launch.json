@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "autoPort": true,
+  "configurations": [
+    {
+      "name": "lexora-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@chronostek/web", "start"],
+      "autoPort": true,
+      "port": 3100
+    }
+  ]
+}

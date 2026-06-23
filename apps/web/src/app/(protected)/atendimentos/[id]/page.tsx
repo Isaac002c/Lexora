@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CreatePanel } from "@/components/create-panel";
+import { AttendanceConvertPanel } from "@/components/attendance-convert-panel";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -41,6 +42,7 @@ export default async function AttendanceDetailPage({
     fetchData<{ items: TimelineItem[] }>(`/v1/audit/entity/ATTENDANCE/${id}`),
   ]);
   const canUpdate = user?.permissions.includes("attendance.update");
+  const canConvert = user?.permissions.includes("attendance.convert");
   return (
     <>
       <PageHeader
@@ -192,6 +194,16 @@ export default async function AttendanceDetailPage({
               </Link>
             ) : (
               <p>Processo ainda não gerado</p>
+            )}
+            {!item.convertedCase && canConvert && (
+              <div className="pt-2">
+                <AttendanceConvertPanel
+                  id={id}
+                  branchId={item.branch.id}
+                  legalAreaId={item.legalArea?.id}
+                  lookups={lookups}
+                />
+              </div>
             )}
           </CardContent>
         </Card>
