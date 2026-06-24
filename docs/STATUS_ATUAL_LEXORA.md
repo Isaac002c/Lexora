@@ -350,6 +350,31 @@ pnpm dev         # web :3000 + api :3333
 **Arquivos alterados:** `finance-contracts-table.tsx` (+4/-1). **Build** web ✅; testes API 24/24 ✅.
 **Critério de aceite Sprint 3:** **ATINGIDO** (contrato↔cliente/processo, honorários+custas, parcelas com valor/venc/status, pagamento/baixa, histórico via audit, filtros, permissões financeiro/admin). Próxima: Sprint 4.
 
+### Sprint 4 — Cobrança e inadimplência · **2026-06-23**
+**Objetivo:** acompanhamento de parcelas, vencimentos, inadimplência e cobrança. Já existia (views, página de inadimplência, `collection-notes`, aging); trabalho = validar e ajustar cores.
+
+**Validação por execução (API real):**
+
+| Item | Resultado | Status |
+| --- | --- | --- |
+| Filtros (views) | `upcoming`/`overdue`/`delinquent`/`paid` retornam contratos corretamente | Validado por API |
+| Registrar cobrança (follow-up) | `POST /contracts/:id/collection-notes` → **201** | Validado por API |
+| Histórico de cobrança | Timeline mostra `COLLECTION_NOTE_ADDED` com **data, responsável (Douglas Almeida) e observação** completa | Validado por API |
+| Inadimplência +15 dias | `view=delinquent` retorna o contrato com parcela vencida há >15 dias | Validado por API |
+
+**Cores financeiras (regra do MVP) — validadas por classe CSS na UI:**
+
+| Aging | Cor exigida | Cor obtida | Status |
+| --- | --- | --- | --- |
+| Em dia (`EM_DIA`) | Verde | **Verde** (corrigido — commit `d0bd105`) | Validado visualmente |
+| A vencer (`A_VENCER`) | Amarelo | **Amarelo** | Validado visualmente |
+| Vencido (`VENCIDO`) | Vermelho | **Vermelho** | Validado visualmente |
+| Inadimplente +15 dias | Laranja | **Laranja** | Validado visualmente |
+
+**Correção:** `EM_DIA` passou de ciano (default) para verde, completando a regra. Datas/aging respeitam America/Sao_Paulo (runtime `TZ` fixo + `installmentAging`).
+**Arquivos alterados:** `status-badge.tsx` (+1/-1). **Build** ✅; testes 24/24 ✅.
+**Critério de aceite Sprint 4:** **ATINGIDO** (parcelas próximas/vencidas, inadimplentes em lista própria com laranja, follow-up com data/responsável/observação, filtros, permissões). Próxima: Sprint 5.
+
 ---
 
 > **Registro incremental:** este documento é atualizado a cada etapa executada (seção 8 das regras de implementação).
