@@ -39,7 +39,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
 
   const sidebar = (
     <aside className="flex h-full w-72 flex-col border-r border-white/10 bg-navy-950">
-      <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6"><Scale className="h-6 w-6 text-cyan-400" /><div><p className="font-semibold tracking-widest text-white">CHRONOSTEK</p><p className="max-w-48 truncate text-xs text-slate-500">{user.tenantName}</p></div></div>
+      <div className="flex h-20 items-center gap-3 border-b border-white/10 px-6"><Scale className="h-6 w-6 text-cyan-400" /><div><p className="font-semibold tracking-widest text-white">LEXORA</p><p className="max-w-48 truncate text-xs text-slate-500">{user.tenantName}</p></div></div>
       <nav className="flex-1 space-y-1 overflow-y-auto p-4">
         {visibleItems.map(([label, href, Icon]) => {
           const active = pathname === href || pathname.startsWith(`${href}/`);

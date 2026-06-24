@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Chronostek | Gestão Jurídica Inteligente",
+  title: "Lexora | Gestão Jurídica Inteligente",
   description: "Plataforma segura de gestão jurídica multi-tenant.",
 };
 

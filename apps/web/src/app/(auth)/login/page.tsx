@@ -12,7 +12,7 @@ export default async function LoginPage() {
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex items-center justify-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl border border-cyan-400/30 bg-cyan-400/10"><Scale className="h-5 w-5 text-cyan-400" /></div>
-          <div><p className="font-semibold tracking-widest text-white">CHRONOSTEK</p><p className="text-xs text-slate-500">Gestão Jurídica Inteligente</p></div>
+          <div><p className="font-semibold tracking-widest text-white">LEXORA</p><p className="text-xs text-slate-500">Gestão Jurídica Inteligente</p></div>
         </div>
         <Card className="border-white/10 bg-navy-900/90 shadow-2xl backdrop-blur">
           <CardHeader>
