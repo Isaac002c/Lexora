@@ -375,6 +375,26 @@ pnpm dev         # web :3000 + api :3333
 **Arquivos alterados:** `status-badge.tsx` (+1/-1). **Build** ✅; testes 24/24 ✅.
 **Critério de aceite Sprint 4:** **ATINGIDO** (parcelas próximas/vencidas, inadimplentes em lista própria com laranja, follow-up com data/responsável/observação, filtros, permissões). Próxima: Sprint 5.
 
+### Sprint 5 — Dashboard executivo e relatórios · **2026-06-23**
+**Objetivo:** visão consolidada das 4 filiais com dados reais. Já implementado (`dashboard.routes.ts`, `reports.routes.ts`); trabalho = validar (sem mudança de código).
+
+**Validação por execução (API real, sem mock):**
+
+| Item | Resultado | Status |
+| --- | --- | --- |
+| Relatório consolidado | proc. ativos/finalizados, faturamento R$3.150, inadimplentes — agregações reais (`groupBy`/`aggregate`) | Validado por API |
+| Por área / filial / advogado | `[Trabalhista:1]` / `[Matriz Centro:1]` / `[Lucas Martins:1]` | Validado por API |
+| Período (from/to) | Default mês corrente; aceita intervalo | Validado por API |
+| Export CSV | **200** `text/csv; charset=utf-8` (com BOM) | Validado por API |
+| Restrição por perfil | Secretaria **403**, Advogado **403** (sem `report.read`); Visualizador **200** | Validado por API |
+| **Gestor — escopo de filial** | carlos (MATRIZ) vê **apenas "Matriz Centro"** no relatório | Validado por API |
+
+**Validação visual:** `/relatorios` renderiza (sem erro) com indicadores (Clientes atendidos, Faturamento, Inadimplentes +15d, Processos ativos/finalizados, Prazos próximos) + 3 tabelas (por área/filial/advogado). `/dashboard` com dados reais já validado na Sprint 1.
+
+**Observação:** esta sprint também cobre o **fluxo do Gestor** pendente da Sprint 1 (filtros por filial/área/responsável + restrição real por filial, comprovada no backend).
+**Arquivos alterados:** nenhum (já implementado). **Build/testes:** sem alteração — 24/24 ✅.
+**Critério de aceite Sprint 5:** **ATINGIDO** (visão consolidada, filtros, dados reais batendo com listagens, relatórios restritos por perfil, estados coerentes). Próxima: Sprint 6.
+
 ---
 
 > **Registro incremental:** este documento é atualizado a cada etapa executada (seção 8 das regras de implementação).
