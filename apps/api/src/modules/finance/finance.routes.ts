@@ -3,6 +3,7 @@ import {
   feeContractCreateSchema,
   feeContractUpdateSchema,
   listQuerySchema,
+  optionalEnum,
   paymentSchema,
 } from "@chronostek/contracts";
 import { Prisma, withTenant } from "@chronostek/database";
@@ -20,7 +21,7 @@ import { removeLocalFile, resolveStoredFile, saveLocalFile } from "../documents/
 
 export const financeRouter = Router();
 const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
-const financeQuerySchema = listQuerySchema.extend({ view: z.enum(["upcoming", "overdue", "delinquent", "paid", "cancelled"]).optional() });
+const financeQuerySchema = listQuerySchema.extend({ view: optionalEnum(["upcoming", "overdue", "delinquent", "paid", "cancelled"]) });
 
 financeRouter.get(
   "/contracts",

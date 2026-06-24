@@ -3,6 +3,7 @@ import {
   deadlineStatusSchema,
   deadlineUpdateSchema,
   listQuerySchema,
+  optionalEnum,
 } from "@chronostek/contracts";
 import { Prisma, withTenant } from "@chronostek/database";
 import { Router } from "express";
@@ -14,7 +15,8 @@ import { assertCaseRelations, assertLegalArea, assertUserBranchAccess } from "..
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 
 export const deadlinesRouter = Router();
-const deadlineQuerySchema = listQuerySchema.extend({ view: z.enum(["overdue", "today", "next5", "next7", "distant", "completed"]).optional(), type: z.enum(["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"]).optional() });
+// Filtros opcionais toleram string vazia (sem filtro) — endurecido no backend.
+export const deadlineQuerySchema = listQuerySchema.extend({ view: optionalEnum(["overdue", "today", "next5", "next7", "distant", "completed"]), type: optionalEnum(["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"]) });
 
 deadlinesRouter.get(
   "/",

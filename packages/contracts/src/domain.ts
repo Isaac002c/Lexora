@@ -2,6 +2,14 @@ import { z } from "zod";
 
 const optionalText = z.string().trim().max(5000).optional().or(z.literal("").transform(() => undefined));
 const optionalUuid = z.string().uuid().optional().or(z.literal("").transform(() => undefined));
+const optionalDate = z.coerce.date().optional().or(z.literal("").transform(() => undefined));
+
+// Enum opcional que trata string vazia (filtro "sem seleção" enviado pelo frontend)
+// como ausência de filtro, evitando 422 em listagens. Defesa no backend/schema,
+// independente do comportamento do frontend.
+export function optionalEnum<const T extends readonly [string, ...string[]]>(values: T) {
+  return z.enum(values).optional().or(z.literal("").transform(() => undefined));
+}
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -11,8 +19,8 @@ export const listQuerySchema = z.object({
   legalAreaId: optionalUuid,
   responsibleId: optionalUuid,
   status: z.string().trim().max(80).optional(),
-  from: z.coerce.date().optional(),
-  to: z.coerce.date().optional(),
+  from: optionalDate,
+  to: optionalDate,
 });
 
 export const clientCreateSchema = z.object({
