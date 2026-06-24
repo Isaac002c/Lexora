@@ -119,6 +119,7 @@ export default async function ClientsPage({
           "Vínculos",
           "Status",
         ]}
+        emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda. Use “Novo cliente” para começar."}
         rows={data.items.map((item) => [
           <Link
             key={item.id}

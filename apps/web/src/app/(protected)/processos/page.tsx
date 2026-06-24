@@ -157,6 +157,7 @@ export default async function CasesPage({
           "Último andamento",
           "Status",
         ]}
+        emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum processo encontrado com os filtros aplicados." : "Nenhum processo cadastrado ainda. Use “Novo processo” para começar."}
         rows={data.items.map((item) => [
           <Link
             key={item.id}

@@ -118,6 +118,7 @@ export default async function AttendancesPage({
           "Status",
           "Ação",
         ]}
+        emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum atendimento encontrado com os filtros aplicados." : "Nenhum atendimento registrado ainda. Use “Novo atendimento” para começar."}
         rows={data.items.map((item) => [
           <Link key={item.id} href={`/atendimentos/${item.id}`} className="font-medium text-cyan-600 hover:underline">{item.clientName}</Link>,
           formatDate(item.occurredAt, true),
