@@ -5,9 +5,9 @@ coverage/
 .turbo/
 *.tsbuildinfo
 .env
-.env.local
-.env.*.local
+.env.*
 !.env.example
+!.env.production.example
 *.log
 .DS_Store
 Thumbs.db

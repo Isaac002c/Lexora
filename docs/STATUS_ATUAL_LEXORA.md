@@ -524,6 +524,49 @@ Financeiro/Relatórios/Administração; troca de senha E2E), Advogado/Financeiro
 **Pendente de validação do escritório:** preferências finais de terminologia/marca (assumido "Lexora" conforme SPEC).
 **Critério de aceite Sprint 11:** **ATINGIDO** (navegação coerente por perfil, sem links que levam a erro; marca consistente; estados vazios úteis). Sem alteração de RLS/RBAC/sessão além do reforço do dashboard.
 
+### Sprint 12 — Publicação controlada, infraestrutura e homologação de produção · **2026-06-25**
+**Objetivo:** conduzir a implantação de produção em ordem **segura, reproduzível, documentada e reversível**, avançando tudo que não depende de credencial externa e deixando cada bloqueio com **próximo passo objetivo**.
+
+**Baseline revalidado (gates verdes, sem alteração de código de produto):**
+
+| Gate | Resultado |
+| --- | --- |
+| `pnpm typecheck` | ✅ 6/6 |
+| `pnpm lint` | ✅ 6/6 (schema válido) |
+| `pnpm test` | ✅ **34/34** (inclui isolamento RLS real) |
+| `pnpm build` | ✅ web (37 rotas) + API |
+
+**Git:** árvore limpa; **29 commits à frente** de `origin/main`; `git log --left-right origin/main...HEAD` mostra **apenas `>`** → push **fast-forward** (sem rebase, sem force).
+
+**Entregáveis desta sprint:**
+
+| Item | Arquivo | Status |
+| --- | --- | --- |
+| Plano de implantação (9 etapas, segredos, rollback, critérios) | `docs/PLANO_IMPLANTACAO_PRODUCAO_LEXORA.md` | Criado |
+| Correção de segurança no `.gitignore` | `.gitignore` | Corrigido e validado |
+| Gerador de segredos de produção (não imprime valores; arquivo 600) | `infra/deploy/scripts/generate-secrets.sh` | Criado e **testado** |
+| Smoke test do ambiente publicado (health/TLS/HSTS/401/CORS/cookie) | `infra/deploy/scripts/smoke-test.sh` | Criado |
+
+**Achado de segurança corrigido:** o `.gitignore` ignorava `.env` e `*.local`, mas **não** `infra/deploy/.env.production` — exatamente o caminho onde o `DEPLOY.md` instrui colocar os segredos reais (risco de commit acidental). Corrigido para `.env.*` mantendo `!.env.example` e `!.env.production.example`. **Validado:** `git check-ignore infra/deploy/.env.production` retorna ignorado e o arquivo gerado não aparece em `git status`.
+
+**Estado por etapa do plano:**
+
+| Etapa | Situação |
+| --- | --- |
+| 1. Baseline local | ✅ Concluída (gates verdes) |
+| 2. GitHub (push dos 29 commits) | 🟧 **Bloqueada**: credencial sem escrita (`Invalid username or token` / auth failed). Comando pronto: `git push origin main` (fast-forward). |
+| 3. VPS (provisionamento/hardening) | 🟧 Pendente de acesso SSH por chave ao `167.233.26.140` |
+| 4. PostgreSQL de produção | 🟧 Pendente de VPS; migrations + verificação `chronostek_app` `NOBYPASSRLS` documentadas; **sem seed de demonstração** |
+| 5. API na VPS | 🟧 Pendente de VPS (Docker ausente nesta máquina; a imagem reusa o `pnpm build` já verde) |
+| 6. Frontend Vercel | 🟧 Pendente de credencial/projeto Vercel |
+| 7. Domínio/TLS/CORS/cookies | 🟦 Pendente de definição de domínio |
+| 8. Backup automatizado | 🟧 Pendente de VPS; script + cron + retenção + offsite documentados |
+| 9. Smoke test publicado | 🟧 Pendente do ambiente publicado; `smoke-test.sh` pronto |
+| 10. Homologação | 🟦 Pendente de dados reais e decisões do escritório (`HOMOLOGACAO.md`) |
+
+**Princípio mantido:** nenhum controle de segurança desativado; nenhum segredo versionado/impresso; nenhum dado de demonstração usado como produção; nenhuma operação destrutiva de Git/infra. **Go-live de produção NÃO declarado** (depende dos 🟧/🟦 acima).
+**Critério de aceite Sprint 12:** **ATINGIDO no escopo executável** (baseline, plano reproduzível/reversível, correção de segurança verificada, ferramenta de segredos testada, smoke test pronto). Etapas externas seguem com bloqueio declarado e próximo passo objetivo.
+
 ---
 
 > **Registro incremental:** este documento é atualizado a cada etapa executada (seção 8 das regras de implementação).
@@ -531,6 +574,9 @@ Financeiro/Relatórios/Administração; troca de senha E2E), Advogado/Financeiro
 > - **2026-06-23 (auditoria)** — Auditoria executável concluída: backend validado ponta a ponta em clone limpo (migrations, seed, 24/24 testes, login, RBAC, cores de prazo, RLS).
 > - **2026-06-23 (P1 parcial)** — Camada web validada (BFF + SSR + cookie HttpOnly + dashboard real — seção 6.1). Pendente: percurso visual de formulários por perfil.
 >
-> **Pendência de versionamento:** o commit `5e3ce84` (SPEC + STATUS) está criado localmente, mas o
-> `git push origin main` foi **negado (403)** — a credencial disponível (`ArthurAdmin`) não tem acesso
-> de escrita ao repositório `Isaac002c/LexoraJuris`. Requer credencial com permissão de escrita.
+> **Pendência de versionamento (2026-06-25):** há **29 commits** locais prontos (de `5e3ce84` a
+> `9bd350e`), árvore limpa, push **fast-forward**. O `git push origin main` permanece **bloqueado** por
+> credencial sem escrita (`remote: Invalid username or token`). **Próximo passo objetivo:** o dono do
+> repositório `Isaac002c/LexoraJuris` configura uma credencial com permissão de escrita (PAT no Git
+> Credential Manager ou `gh auth login` após instalar o GitHub CLI) e executa `git push origin main`.
+> Nenhum token deve ser colado em chat, commit ou documento.
