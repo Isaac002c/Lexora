@@ -22,8 +22,10 @@ export async function assertUserBranchAccess(tx: TenantTransaction, tenantId: st
 
 export async function assertClientBranch(tx: TenantTransaction, tenantId: string, clientId: string | undefined, branchId: string) {
   if (!clientId) return;
-  const client = await tx.client.findFirst({ where: { tenantId, id: clientId, primaryBranchId: branchId, status: { not: "ARCHIVED" } }, select: { id: true } });
-  if (!client) invalid("O cliente não pertence à filial informada ou está arquivado.");
+  const client = await tx.client.findFirst({ where: { tenantId, id: clientId }, select: { primaryBranchId: true, status: true } });
+  if (!client) invalid("Cliente não encontrado neste escritório. Selecione um cliente válido.");
+  if (client.status === "ARCHIVED") invalid("Este cliente está arquivado e não pode ser usado em novos processos. Reative o cliente ou selecione outro.");
+  if (client.primaryBranchId !== branchId) invalid("Este cliente não está vinculado à filial selecionada. Escolha outra filial, selecione um cliente compatível ou solicite o vínculo do cliente à filial.");
 }
 
 export async function assertCaseRelations(

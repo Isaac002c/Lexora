@@ -6,7 +6,7 @@ import { ApiActionButton } from "@/components/api-action-button";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate, formatDay, formatMoney } from "@/lib/format";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
@@ -106,7 +106,7 @@ export default async function ClientDetailPage({
           <DataTable
             columns={["Data", "Status"]}
             rows={item.attendances.map((x) => [
-              formatDate(x.occurredAt, true),
+              formatDay(x.occurredAt),
               <StatusBadge key={x.id} value={x.status} />,
             ])}
           />

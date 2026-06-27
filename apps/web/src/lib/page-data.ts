@@ -10,7 +10,7 @@ export async function fetchData<T>(path: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export interface LookupOption { id: string; name: string; code?: string }
+export interface LookupOption { id: string; name: string; code?: string; primaryBranchId?: string }
 export interface Lookups {
   branches: LookupOption[];
   legalAreas: LookupOption[];

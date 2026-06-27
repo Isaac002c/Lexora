@@ -5,10 +5,11 @@ import { AttendanceConvertPanel } from "@/components/attendance-convert-panel";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
+import { formatDay } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
+import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
 
 interface AttendanceDetail {
   id: string;
@@ -46,7 +47,7 @@ export default async function AttendanceDetailPage({
   return (
     <>
       <PageHeader
-        eyebrow={`${item.branch.name} · ${formatDate(item.occurredAt, true)}`}
+        eyebrow={`${item.branch.name} · ${formatDay(item.occurredAt)}`}
         title={item.clientName}
         description="Detalhes da triagem, direcionamento e conversão."
         action={
@@ -67,10 +68,10 @@ export default async function AttendanceDetailPage({
                   },
                   {
                     name: "occurredAt",
-                    label: "Data e hora",
-                    type: "datetime-local",
+                    label: "Data",
+                    type: "date",
                     required: true,
-                    defaultValue: item.occurredAt.slice(0, 16),
+                    defaultValue: item.occurredAt.slice(0, 10),
                   },
                   {
                     name: "branchId",
@@ -117,7 +118,9 @@ export default async function AttendanceDetailPage({
                   {
                     name: "origin",
                     label: "Origem",
+                    type: "select",
                     defaultValue: item.origin,
+                    options: ATTENDANCE_ORIGINS.map((o) => ({ value: o, label: o })),
                   },
                   {
                     name: "status",

@@ -4,7 +4,7 @@ import { DataTable } from "@/components/data-table";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDay } from "@/lib/format";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
@@ -76,9 +76,9 @@ export default async function CaseDetailPage({
                 type: "date",
                 defaultValue: item.distributionDate?.slice(0, 10),
               },
-              { name: "initialPetitionDueAt", label: "Prazo da petição inicial", type: "datetime-local", defaultValue: item.initialPetitionDueAt?.slice(0, 16) },
-              { name: "hearingAt", label: "Data da audiência", type: "datetime-local", defaultValue: item.hearingAt?.slice(0, 16) },
-              { name: "appealDueAt", label: "Prazo de recurso", type: "datetime-local", defaultValue: item.appealDueAt?.slice(0, 16) },
+              { name: "initialPetitionDueAt", label: "Prazo da petição inicial", type: "date", defaultValue: item.initialPetitionDueAt?.slice(0, 10) },
+              { name: "hearingAt", label: "Data da audiência", type: "date", defaultValue: item.hearingAt?.slice(0, 10) },
+              { name: "appealDueAt", label: "Prazo de recurso", type: "date", defaultValue: item.appealDueAt?.slice(0, 10) },
               ...(canReassign ? [
                 { name: "responsibleUserId", label: "Responsável interno", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "INTERNAL_OWNER")?.user.id, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
                 { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: lookups.users.map((attorney) => ({ value: attorney.id, label: attorney.name })) },
@@ -166,7 +166,7 @@ export default async function CaseDetailPage({
             columns={["Título", "Vencimento", "Status"]}
             rows={item.deadlines.map((x) => [
               x.title,
-              formatDate(x.dueAt, true),
+              formatDay(x.dueAt),
               <StatusBadge key={x.id} value={x.status} />,
             ])}
           />

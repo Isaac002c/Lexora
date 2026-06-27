@@ -4,12 +4,33 @@ const optionalText = z.string().trim().max(5000).optional().or(z.literal("").tra
 const optionalUuid = z.string().uuid().optional().or(z.literal("").transform(() => undefined));
 const optionalDate = z.coerce.date().optional().or(z.literal("").transform(() => undefined));
 
+// #1 — Campos de data sem horário. Aceita "yyyy-mm-dd" (data pura) e a interpreta
+// como meia-noite em America/Sao_Paulo (offset fixo -03:00; o Brasil não adota
+// horário de verão), evitando o "erro de um dia" ao gravar em Timestamptz. Também
+// aceita datetime completo, preservando compatibilidade com dados já existentes.
+function spDatePreprocess(value: unknown) {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return undefined;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return new Date(`${trimmed}T00:00:00-03:00`);
+    return trimmed;
+  }
+  return value;
+}
+const inputDate = z.preprocess(spDatePreprocess, z.coerce.date());
+const optionalInputDate = z.preprocess(spDatePreprocess, z.coerce.date().optional());
+
 // Enum opcional que trata string vazia (filtro "sem seleção" enviado pelo frontend)
 // como ausência de filtro, evitando 422 em listagens. Defesa no backend/schema,
 // independente do comportamento do frontend.
 export function optionalEnum<const T extends readonly [string, ...string[]]>(values: T) {
   return z.enum(values).optional().or(z.literal("").transform(() => undefined));
 }
+
+// Canais de origem do atendimento (#2). Lista fechada: novos registros usam apenas
+// estes valores. Registros históricos com texto livre continuam sendo exibidos
+// normalmente (a validação só incide sobre gravações).
+export const ATTENDANCE_ORIGINS = ["WhatsApp", "Site", "Indicação", "Presencial", "Instagram"] as const;
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -49,8 +70,8 @@ export const attendanceCreateSchema = z.object({
   clientName: z.string().trim().min(3).max(200),
   phone: optionalText,
   email: z.string().trim().email().optional().or(z.literal("").transform(() => undefined)),
-  occurredAt: z.coerce.date(),
-  origin: optionalText,
+  occurredAt: inputDate,
+  origin: optionalEnum(ATTENDANCE_ORIGINS),
   notes: optionalText,
   status: z.enum(["NOVO", "EM_TRIAGEM", "AGUARDANDO_DOCUMENTOS", "DIRECIONADO", "CONVERTIDO_EM_PROCESSO", "ENCERRADO"]).default("NOVO"),
 });
@@ -75,9 +96,9 @@ export const caseUpdateSchema = z.object({
   processNumber: optionalText,
   distributionDate: z.coerce.date().optional(),
   entryDate: z.coerce.date().optional(),
-  initialPetitionDueAt: z.coerce.date().optional(),
-  hearingAt: z.coerce.date().optional(),
-  appealDueAt: z.coerce.date().optional(),
+  initialPetitionDueAt: optionalInputDate,
+  hearingAt: optionalInputDate,
+  appealDueAt: optionalInputDate,
   responsibleUserId: optionalUuid,
   attorneyId: optionalUuid,
 });
@@ -90,7 +111,7 @@ export const deadlineCreateSchema = z.object({
   responsibleUserId: z.string().uuid(),
   title: z.string().trim().min(3).max(200),
   type: z.enum(["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"]),
-  dueAt: z.coerce.date(),
+  dueAt: inputDate,
   priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
   notes: optionalText,
 });

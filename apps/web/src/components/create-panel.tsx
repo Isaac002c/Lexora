@@ -7,6 +7,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
+import { DateField } from "./date-field";
 
 export interface FormField {
   name: string;
@@ -23,9 +24,14 @@ export interface FormField {
     | "multiselect"
     | "checkbox";
   required?: boolean;
-  options?: Array<{ value: string; label: string }>;
+  options?: Array<{ value: string; label: string; parent?: string }>;
   defaultValue?: string | number | boolean | string[];
   placeholder?: string;
+  // Select dependente (opt-in): filtra as opções pelo valor de outro campo,
+  // comparando `option.parent` com o valor atual de `dependsOn`. Usado para
+  // mostrar apenas clientes da filial selecionada (evita o erro cliente/filial).
+  dependsOn?: string;
+  dependsOnHint?: string;
 }
 
 export function CreatePanel({
@@ -44,6 +50,13 @@ export function CreatePanel({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  // Valores de campos que controlam selects dependentes (ex.: filial → clientes).
+  const [filters, setFilters] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const field of fields)
+      if (typeof field.defaultValue === "string") initial[field.name] = field.defaultValue;
+    return initial;
+  });
   const router = useRouter();
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -127,15 +140,24 @@ export function CreatePanel({
                     />
                   ) : field.type === "select" || field.type === "multiselect" ? (
                     <select
+                      key={field.dependsOn ? `${field.name}:${filters[field.dependsOn] ?? ""}` : field.name}
                       id={field.name}
                       name={field.name}
                       multiple={field.type === "multiselect"}
                       required={field.required}
                       defaultValue={field.type === "multiselect" ? (Array.isArray(field.defaultValue) ? field.defaultValue : []) : String(field.defaultValue ?? "")}
+                      onChange={(event) => setFilters((prev) => ({ ...prev, [field.name]: event.target.value }))}
                       className={field.type === "multiselect" ? "border-input bg-background min-h-28 w-full rounded-md border px-3 py-2 text-sm" : "border-input bg-background h-10 w-full rounded-md border px-3 text-sm"}
                     >
-                      {field.type !== "multiselect" && <option value="">Selecione</option>}
-                      {field.options?.map((option) => (
+                      {field.type !== "multiselect" && (
+                        <option value="">
+                          {field.dependsOn && !filters[field.dependsOn] ? (field.dependsOnHint ?? "Selecione") : "Selecione"}
+                        </option>
+                      )}
+                      {(field.dependsOn
+                        ? (field.options ?? []).filter((option) => option.parent === filters[field.dependsOn!])
+                        : field.options
+                      )?.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -148,6 +170,12 @@ export function CreatePanel({
                       type="checkbox"
                       defaultChecked={Boolean(field.defaultValue)}
                       className="h-5 w-5"
+                    />
+                  ) : field.type === "date" ? (
+                    <DateField
+                      name={field.name}
+                      required={field.required}
+                      defaultValue={typeof field.defaultValue === "string" ? field.defaultValue : undefined}
                     />
                   ) : (
                     <Input

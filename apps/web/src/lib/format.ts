@@ -13,5 +13,12 @@ export const formatDate = (value: string | Date | null | undefined, withTime = f
       ).format(new Date(value))
     : "—";
 
+// #1 — Campos Timestamptz tratados como DATA: exibe somente a data no fuso de São
+// Paulo, correto para registros novos (meia-noite SP) e antigos (instante real).
+export const formatDay = (value: string | Date | null | undefined) =>
+  value
+    ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: TIMEZONE }).format(new Date(value))
+    : "—";
+
 export const formatMoney = (value: string | number | null | undefined) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(value ?? 0));

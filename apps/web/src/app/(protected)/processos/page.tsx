@@ -58,17 +58,6 @@ export default async function CasesPage({
             buttonLabel="Novo processo"
             fields={[
               {
-                name: "clientId",
-                label: "Cliente",
-                type: "select",
-                required: true,
-                options: lookups.clients.map((x) => ({
-                  value: x.id,
-                  label: x.name,
-                })),
-              },
-              { name: "caseType", label: "Tipo de processo", required: true },
-              {
                 name: "branchId",
                 label: "Filial",
                 type: "select",
@@ -78,6 +67,20 @@ export default async function CasesPage({
                   label: x.name,
                 })),
               },
+              {
+                name: "clientId",
+                label: "Cliente",
+                type: "select",
+                required: true,
+                dependsOn: "branchId",
+                dependsOnHint: "Selecione a filial primeiro",
+                options: lookups.clients.map((x) => ({
+                  value: x.id,
+                  label: x.name,
+                  parent: x.primaryBranchId,
+                })),
+              },
+              { name: "caseType", label: "Tipo de processo", required: true },
               {
                 name: "legalAreaId",
                 label: "Área jurídica",

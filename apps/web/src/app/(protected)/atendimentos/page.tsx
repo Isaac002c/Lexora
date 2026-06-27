@@ -6,9 +6,10 @@ import { SearchForm } from "@/components/search-form";
 import { StatusBadge } from "@/components/status-badge";
 import { AttendanceConvertPanel } from "@/components/attendance-convert-panel";
 import { Pagination } from "@/components/pagination";
-import { formatDate } from "@/lib/format";
+import { formatDay } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { ModuleNav } from "@/features/shared/components/module-nav";
+import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
 
 interface AttendanceList {
   items: Array<{
@@ -55,8 +56,8 @@ export default async function AttendancesPage({
               { name: "clientName", label: "Nome do cliente", required: true },
               {
                 name: "occurredAt",
-                label: "Data e hora",
-                type: "datetime-local",
+                label: "Data",
+                type: "date",
                 required: true,
               },
               {
@@ -89,7 +90,7 @@ export default async function AttendancesPage({
               },
               { name: "phone", label: "Telefone" },
               { name: "email", label: "E-mail", type: "email" },
-              { name: "origin", label: "Origem" },
+              { name: "origin", label: "Origem", type: "select", required: true, options: ATTENDANCE_ORIGINS.map((o) => ({ value: o, label: o })) },
               { name: "notes", label: "Observações", type: "textarea" },
             ]}
           />
@@ -121,7 +122,7 @@ export default async function AttendancesPage({
         emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum atendimento encontrado com os filtros aplicados." : "Nenhum atendimento registrado ainda. Use “Novo atendimento” para começar."}
         rows={data.items.map((item) => [
           <Link key={item.id} href={`/atendimentos/${item.id}`} className="font-medium text-cyan-600 hover:underline">{item.clientName}</Link>,
-          formatDate(item.occurredAt, true),
+          formatDay(item.occurredAt),
           item.branch.name,
           item.legalArea?.name ?? "—",
           item.attorney?.name ?? "—",
