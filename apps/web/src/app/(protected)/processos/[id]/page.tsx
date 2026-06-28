@@ -8,6 +8,7 @@ import { formatDate, formatDay } from "@/lib/format";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
+import { ChecklistItemControl } from "@/components/checklist-item-control";
 
 interface CaseDetail {
   id: string;
@@ -36,7 +37,7 @@ interface CaseDetail {
   checklists: Array<{
     id: string;
     name: string;
-    items: Array<{ status: string }>;
+    items: Array<{ id: string; title: string; status: string; notes?: string }>;
   }>;
 }
 export default async function CaseDetailPage({
@@ -52,6 +53,9 @@ export default async function CaseDetailPage({
   const [lookups, user, history] = await Promise.all([fetchData<Lookups>("/v1/lookups"), getCurrentUser(), fetchData<{ items: TimelineItem[] }>(`/v1/audit/entity/LEGAL_CASE/${id}`)]);
   const canUpdate = user?.permissions.some((permission) => permission === "case.update" || permission === "case.update_assigned");
   const canReassign = user?.permissions.includes("case.update");
+  const canManageDeadlines = user?.permissions.includes("deadline.manage");
+  const canManageChecklist = user?.permissions.includes("checklist.manage");
+  const deadlineTypes = ["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"];
   return (
     <>
       <PageHeader
@@ -161,7 +165,24 @@ export default async function CaseDetailPage({
       </Card>
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
-          <h2 className="mb-3 text-lg font-semibold">Prazos</h2>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Prazos</h2>
+            {canManageDeadlines && (
+              <CreatePanel
+                title="Novo prazo"
+                endpoint={`/api/v1/cases/${id}/deadlines`}
+                buttonLabel="Novo prazo"
+                fields={[
+                  { name: "title", label: "Título", required: true },
+                  { name: "type", label: "Tipo", type: "select", required: true, options: deadlineTypes.map((deadlineType) => ({ value: deadlineType, label: deadlineType.replaceAll("_", " ") })) },
+                  { name: "dueAt", label: "Vencimento", type: "date", required: true },
+                  { name: "responsibleUserId", label: "Responsável", type: "select", required: true, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
+                  { name: "priority", label: "Prioridade", type: "select", defaultValue: "NORMAL", options: ["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => ({ value: priority, label: priority })) },
+                  { name: "notes", label: "Observação", type: "textarea" },
+                ]}
+              />
+            )}
+          </div>
           <DataTable
             columns={["Título", "Vencimento", "Status"]}
             rows={item.deadlines.map((x) => [
@@ -182,6 +203,28 @@ export default async function CaseDetailPage({
           />
         </div>
       </div>
+      <section className="mt-6">
+        <h2 className="mb-3 text-lg font-semibold">Checklist</h2>
+        {item.checklists.length === 0 ? (
+          <p className="text-muted-foreground text-sm">Nenhum checklist neste processo.</p>
+        ) : (
+          item.checklists.map((checklist) => (
+            <div key={checklist.id} className="bg-card mb-4 rounded-xl border p-4">
+              <h3 className="mb-2 text-sm font-semibold">{checklist.name}</h3>
+              {checklist.items.map((checklistItem) => (
+                <ChecklistItemControl
+                  key={checklistItem.id}
+                  itemId={checklistItem.id}
+                  title={checklistItem.title}
+                  status={checklistItem.status}
+                  notes={checklistItem.notes}
+                  canManage={Boolean(canManageChecklist)}
+                />
+              ))}
+            </div>
+          ))
+        )}
+      </section>
       <section className="mt-8"><h2 className="mb-4 text-lg font-semibold">Histórico</h2><Timeline items={history.items} /></section>
     </>
   );

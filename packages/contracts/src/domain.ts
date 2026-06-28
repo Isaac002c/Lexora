@@ -122,6 +122,17 @@ export const deadlineUpdateSchema = deadlineCreateSchema.partial().extend({
 
 export const deadlineStatusSchema = z.object({ status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]) });
 
+// #5 — Prazo criado de dentro do processo: filial, processo, cliente e área são
+// inferidos do processo no backend; o usuário informa apenas o essencial.
+export const caseDeadlineCreateSchema = z.object({
+  title: z.string().trim().min(3).max(200),
+  type: z.enum(["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"]),
+  dueAt: inputDate,
+  responsibleUserId: z.string().uuid(),
+  priority: z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]).default("NORMAL"),
+  notes: optionalText,
+});
+
 export const feeContractCreateSchema = z.object({
   branchId: z.string().uuid(),
   clientId: z.string().uuid(),

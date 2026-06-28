@@ -6,6 +6,7 @@ import { normalizeSearch } from "../../lib/field-crypto.js";
 import { allowedBranches, assertBranch, attendanceAttorneyFilter } from "../../lib/tenant.js";
 import { AppError, notFound } from "../../lib/app-error.js";
 import { assertClientBranch, assertLegalArea, assertUserBranchAccess } from "../../lib/entity-access.js";
+import { createInitialChecklist } from "../../lib/initial-checklist.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 
 export const attendancesRouter = Router();
@@ -107,6 +108,7 @@ attendancesRouter.post("/:id/convert", requireAuth, requirePermission("attendanc
       const legalCase = await tx.legalCase.create({ data: { tenantId: auth.tenantId, branchId: attendance.branchId, legalAreaId: input.case.legalAreaId, caseType: input.case.caseType, entryDate: input.case.entryDate, notes: input.case.notes, parties: { create: { clientId, isPrimary: true } }, assignments: { create: [input.case.responsibleUserId ? { userId: input.case.responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null, input.case.attorneyId ? { userId: input.case.attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null].filter((item): item is NonNullable<typeof item> => Boolean(item)) } } });
       caseId = legalCase.id;
       await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: legalCase.id, action: "CASE_CREATED_FROM_ATTENDANCE", description: `Processo criado a partir do atendimento de ${attendance.clientName}` } });
+      await createInitialChecklist(tx, auth.tenantId, legalCase.id, input.case.legalAreaId, auth.userId);
     }
     await tx.attendance.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: attendance.id } }, data: { clientId, convertedCaseId: caseId, status: caseId ? "CONVERTIDO_EM_PROCESSO" : "DIRECIONADO" } });
     await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "ATTENDANCE", entityId: attendance.id, action: caseId ? "ATTENDANCE_CONVERTED_TO_CASE" : "ATTENDANCE_LINKED_TO_CLIENT", description: caseId ? "Atendimento convertido em cliente e processo" : "Atendimento vinculado ao cliente" } });

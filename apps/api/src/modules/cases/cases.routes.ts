@@ -1,10 +1,11 @@
-import { caseCreateSchema, caseUpdateSchema, listQuerySchema } from "@chronostek/contracts";
+import { caseCreateSchema, caseDeadlineCreateSchema, caseUpdateSchema, listQuerySchema } from "@chronostek/contracts";
 import { Prisma, withTenant } from "@chronostek/database";
 import { Router } from "express";
 import { allowedBranches, assertBranch, caseAssignmentFilter } from "../../lib/tenant.js";
 import { normalizeSearch } from "../../lib/field-crypto.js";
-import { forbidden, notFound } from "../../lib/app-error.js";
+import { AppError, forbidden, notFound } from "../../lib/app-error.js";
 import { assertClientBranch, assertLegalArea, assertUserBranchAccess } from "../../lib/entity-access.js";
+import { createInitialChecklist } from "../../lib/initial-checklist.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 
 export const casesRouter = Router();
@@ -41,7 +42,37 @@ casesRouter.post("/", requireAuth, requirePermission("case.create"), async (requ
       assignments: { create: [input.responsibleUserId ? { userId: input.responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null, input.attorneyId ? { userId: input.attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)) },
     } });
     await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: legalCase.id, action: "CASE_CREATED", description: `Processo ${legalCase.caseType} criado` } });
+    await createInitialChecklist(tx, auth.tenantId, legalCase.id, input.legalAreaId, auth.userId);
     return legalCase;
+  });
+  response.status(201).json({ id: item.id });
+});
+
+// #5 — Criar prazo de dentro do processo: filial, cliente e área são inferidos do
+// processo; o prazo passa a constar no calendário, no dashboard e na lista geral
+// (mesmo registro Deadline, sem duplicação) e no histórico do processo.
+casesRouter.post("/:id/deadlines", requireAuth, requirePermission("deadline.manage"), async (request, response) => {
+  const auth = request.auth!;
+  const input = caseDeadlineCreateSchema.parse(request.body);
+  const item = await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const legalCase = await tx.legalCase.findFirst({
+      where: { tenantId: auth.tenantId, id: String(request.params.id), ...(branches ? { branchId: { in: branches } } : {}), ...caseAssignmentFilter(auth) },
+      include: { parties: { where: { isPrimary: true }, select: { clientId: true } } },
+    });
+    if (!legalCase) throw notFound();
+    assertBranch(auth, legalCase.branchId);
+    const clientId = legalCase.parties[0]?.clientId;
+    if (!clientId) throw new AppError(422, "Vínculo inválido", "O processo não possui cliente vinculado para associar o prazo.");
+    await assertUserBranchAccess(tx, auth.tenantId, input.responsibleUserId, legalCase.branchId);
+    const deadline = await tx.deadline.create({ data: {
+      tenantId: auth.tenantId, branchId: legalCase.branchId, caseId: legalCase.id, clientId, legalAreaId: legalCase.legalAreaId,
+      responsibleUserId: input.responsibleUserId, title: input.title, type: input.type, dueAt: input.dueAt, priority: input.priority, notes: input.notes,
+    } });
+    const dueLabel = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: "America/Sao_Paulo" }).format(deadline.dueAt);
+    await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "DEADLINE", entityId: deadline.id, action: "DEADLINE_CREATED", description: `Prazo ${deadline.title} criado` } });
+    await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: legalCase.id, action: "DEADLINE_CREATED", description: `Prazo "${deadline.title}" criado para ${dueLabel}` } });
+    return deadline;
   });
   response.status(201).json({ id: item.id });
 });

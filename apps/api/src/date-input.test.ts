@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceCreateSchema, deadlineCreateSchema } from "@chronostek/contracts";
+import { attendanceCreateSchema, caseDeadlineCreateSchema, deadlineCreateSchema } from "@chronostek/contracts";
 
 const ids = {
   branchId: "11111111-1111-4111-8111-111111111111",
@@ -37,6 +37,17 @@ describe("#1 entrada de data sem horário (America/Sao_Paulo)", () => {
       dueAt: "2026-06-30",
     });
     expect(parsed.dueAt.toISOString()).toBe("2026-06-30T03:00:00.000Z");
+  });
+
+  it("aplica a regra de data ao prazo criado dentro do processo (#5)", () => {
+    const parsed = caseDeadlineCreateSchema.parse({
+      title: "Audiência de instrução",
+      type: "AUDIENCIA",
+      dueAt: "2026-07-15",
+      responsibleUserId: ids.responsibleUserId,
+    });
+    expect(parsed.dueAt.toISOString()).toBe("2026-07-15T03:00:00.000Z");
+    expect(parsed.priority).toBe("NORMAL");
   });
 });
 
