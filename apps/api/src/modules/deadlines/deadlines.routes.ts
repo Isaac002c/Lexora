@@ -1,7 +1,10 @@
 import {
   deadlineCreateSchema,
+  deadlineInternalState,
   deadlineStatusSchema,
   deadlineUpdateSchema,
+  internalDaysDelta,
+  internalDueAt,
   listQuerySchema,
   optionalEnum,
 } from "@chronostek/contracts";
@@ -68,6 +71,8 @@ deadlinesRouter.get(
         items: items.map((item) => ({
           ...item,
           color: deadlineColor(item.dueAt, item.status),
+          internalDueAt: internalDueAt(item.dueAt),
+          internalState: deadlineInternalState(item.dueAt, item.status, now, item.completedAt),
         })),
         total,
         page: query.page,
@@ -157,16 +162,16 @@ deadlinesRouter.patch(
           completedAt: input.status === "COMPLETED" ? new Date() : null,
         },
       });
-      await tx.auditLog.create({
-        data: {
-          tenantId: auth.tenantId,
-          actorUserId: auth.userId,
-          entityType: "DEADLINE",
-          entityId: deadline.id,
-          action: "DEADLINE_STATUS_UPDATED",
-          description: `Prazo alterado para ${input.status}`,
-        },
-      });
+      let description = `Prazo "${existing.title}" alterado para ${input.status}`;
+      if (input.status === "COMPLETED" && deadline.completedAt) {
+        const delta = internalDaysDelta(deadline.dueAt, deadline.completedAt);
+        description =
+          delta >= 0
+            ? `Prazo "${existing.title}" concluído dentro da antecedência (${delta} dia(s) antes do prazo interno)`
+            : `Prazo "${existing.title}" concluído FORA da antecedência (${Math.abs(delta)} dia(s) após o prazo interno)`;
+      }
+      await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "DEADLINE", entityId: deadline.id, action: "DEADLINE_STATUS_UPDATED", description } });
+      await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: existing.caseId, action: "DEADLINE_STATUS_UPDATED", description } });
       return deadline;
     });
     response.json(result);

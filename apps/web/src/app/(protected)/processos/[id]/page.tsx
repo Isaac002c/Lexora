@@ -10,6 +10,7 @@ import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
 import { ChecklistItemControl } from "@/components/checklist-item-control";
 import { deadlineTypeLabel } from "@/lib/deadline-labels";
+import { deadlineInternalState, internalDueAt, INTERNAL_STATE_LABELS } from "@chronostek/contracts";
 
 interface CaseDetail {
   id: string;
@@ -34,6 +35,7 @@ interface CaseDetail {
     type: string;
     dueAt: string;
     status: string;
+    completedAt?: string;
   }>;
   documents: Array<{ id: string; name: string; status: string }>;
   checklists: Array<{
@@ -197,8 +199,8 @@ export default async function CaseDetailPage({
             columns={["Título", "Vencimento", "Status"]}
             rows={item.deadlines.map((x) => [
               <span key={x.id}><span className="block">{x.title}</span><span className={`text-xs ${x.type === "AUDIENCIA" ? "font-semibold text-purple-600" : "text-muted-foreground"}`}>{deadlineTypeLabel(x.type)}</span></span>,
-              formatDay(x.dueAt),
-              <StatusBadge key="st" value={x.status} />,
+              <span key="due"><span className="block">{formatDay(x.dueAt)}</span><span className="text-xs text-muted-foreground">interno: {formatDay(internalDueAt(x.dueAt))}</span></span>,
+              <span key="st" className="flex flex-col gap-1"><StatusBadge value={x.status} /><span className="text-xs text-muted-foreground">{INTERNAL_STATE_LABELS[deadlineInternalState(x.dueAt, x.status, new Date(), x.completedAt)]}</span></span>,
             ])}
           />
         </div>
