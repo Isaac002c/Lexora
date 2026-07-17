@@ -1,5 +1,10 @@
 # Deploy de produção
 
+> **⚠️ Implantação real:** a produção atual roda em **VPS compartilhada** (nginx existente +
+> API em loopback + override de compose), documentada em
+> [`RUNBOOK_PRODUCAO_LEXORA.md`](RUNBOOK_PRODUCAO_LEXORA.md) — **use o runbook para operar**.
+> O fluxo abaixo (com Caddy) vale para uma VPS dedicada.
+
 ## 1. DNS e segredos
 
 Crie `api.seudominio.com` apontando para a VPS e configure `app.seudominio.com` na Vercel. Copie `.env.production.example` para `infra/deploy/.env.production`, gere segredos independentes e mantenha o arquivo fora do Git.

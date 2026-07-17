@@ -15,3 +15,9 @@ packages/database/prisma/dev.db
 storage/uploads/*
 !storage/uploads/.gitkeep
 .postgres/
+.vercel/
+# Bootstraps específicos de cliente carregam dados reais (PII) — nunca versionar.
+# Os utilitários genéricos (tenant/user), parametrizados por env, são versionados.
+infra/deploy/bootstrap-*.ts
+!infra/deploy/bootstrap-tenant.ts
+!infra/deploy/bootstrap-user.ts

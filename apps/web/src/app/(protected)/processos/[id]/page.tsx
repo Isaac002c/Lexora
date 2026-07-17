@@ -9,6 +9,7 @@ import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
 import { ChecklistItemControl } from "@/components/checklist-item-control";
+import { deadlineTypeLabel } from "@/lib/deadline-labels";
 
 interface CaseDetail {
   id: string;
@@ -30,6 +31,7 @@ interface CaseDetail {
   deadlines: Array<{
     id: string;
     title: string;
+    type: string;
     dueAt: string;
     status: string;
   }>;
@@ -142,6 +144,14 @@ export default async function CaseDetailPage({
           </CardHeader>
           <CardContent>{formatDate(item.distributionDate)}</CardContent>
         </Card>
+        {item.hearingAt && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Audiência</CardTitle>
+            </CardHeader>
+            <CardContent className="font-medium text-purple-600">{formatDay(item.hearingAt)}</CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <CardTitle className="text-sm">Responsáveis</CardTitle>
@@ -174,7 +184,7 @@ export default async function CaseDetailPage({
                 buttonLabel="Novo prazo"
                 fields={[
                   { name: "title", label: "Título", required: true },
-                  { name: "type", label: "Tipo", type: "select", required: true, options: deadlineTypes.map((deadlineType) => ({ value: deadlineType, label: deadlineType.replaceAll("_", " ") })) },
+                  { name: "type", label: "Tipo", type: "select", required: true, options: deadlineTypes.map((deadlineType) => ({ value: deadlineType, label: deadlineTypeLabel(deadlineType) })) },
                   { name: "dueAt", label: "Vencimento", type: "date", required: true },
                   { name: "responsibleUserId", label: "Responsável", type: "select", required: true, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
                   { name: "priority", label: "Prioridade", type: "select", defaultValue: "NORMAL", options: ["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => ({ value: priority, label: priority })) },
@@ -186,9 +196,9 @@ export default async function CaseDetailPage({
           <DataTable
             columns={["Título", "Vencimento", "Status"]}
             rows={item.deadlines.map((x) => [
-              x.title,
+              <span key={x.id}><span className="block">{x.title}</span><span className={`text-xs ${x.type === "AUDIENCIA" ? "font-semibold text-purple-600" : "text-muted-foreground"}`}>{deadlineTypeLabel(x.type)}</span></span>,
               formatDay(x.dueAt),
-              <StatusBadge key={x.id} value={x.status} />,
+              <StatusBadge key="st" value={x.status} />,
             ])}
           />
         </div>

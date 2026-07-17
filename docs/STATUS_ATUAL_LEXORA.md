@@ -567,6 +567,32 @@ Financeiro/Relatórios/Administração; troca de senha E2E), Advogado/Financeiro
 **Princípio mantido:** nenhum controle de segurança desativado; nenhum segredo versionado/impresso; nenhum dado de demonstração usado como produção; nenhuma operação destrutiva de Git/infra. **Go-live de produção NÃO declarado** (depende dos 🟧/🟦 acima).
 **Critério de aceite Sprint 12:** **ATINGIDO no escopo executável** (baseline, plano reproduzível/reversível, correção de segurança verificada, ferramenta de segredos testada, smoke test pronto). Etapas externas seguem com bloqueio declarado e próximo passo objetivo.
 
+### Sprint 12 (continuação) — Produção publicada, atualização e estabilização · **2026-06-28**
+**Objetivo:** confirmar a implantação real, atualizar o código publicado e estabilizar operação/backup/segurança.
+
+**Produção verificada (evidência externa):**
+
+| Item | Evidência | Status |
+| --- | --- | --- |
+| Frontend `https://lexora.chronostek.com.br` | 307 → `/login`, `Server: Vercel` | ✅ no ar |
+| API `https://api.lexora.chronostek.com.br` | `/health` 200 · `/v1/auth/me` sem token 401 · TLS válido até 25/09/2026 · HSTS | ✅ no ar |
+| CORS | reflete apenas `https://lexora.chronostek.com.br`; origem estranha não é refletida | ✅ restrito |
+| Banco | `lexora-postgres-1` healthy, 5432 **não publicado** (rede interna) | ✅ privado |
+| Isolamento na VPS compartilhada | `/opt/lexora`, rede `lexora_private`, vhost nginx separado, API em loopback | ✅ sem tocar vizinhos |
+| Atualização de código | `3f43130 → 86067ee` (backup antes; migrations "No pending"; container recriado healthy) | ✅ Fases A+B1 live |
+
+**Backup — bug crítico encontrado e corrigido:** o `backup.sh` da VPS usava `docker exec -t`; o TTY **corrompia o dump** (`corrupt TOC` — backups diários irrecuperáveis). Corrigido (sem `-t`), novo dump gerado e **restauração provada** em banco temporário (contagens conferidas). Ferramentas versionadas: `infra/deploy/scripts/restore-test.sh` (prova mensal) e `offsite-sync.sh` (cópia externa via rclone, sem credenciais; aguarda destino).
+
+**Segurança pós-publicação (revisada):** sessões revogáveis em logout/suspensão/reset (validado no código: `auth.service.ts`, `admin.routes.ts`); reset de senha por admin gera temporária + força troca + revoga sessões; auditoria sem senhas/tokens; bootstraps genéricos (`bootstrap-tenant/user.ts`, senha via env) **versionados**, bootstrap com dados reais do cliente (`bootstrap-batista.ts`) **excluído do Git por política** no `.gitignore`.
+
+**Audiências (decisão pendente do escritório) — análise registrada:**
+- **Hoje:** audiência = `DeadlineType.AUDIENCIA` + `LegalCase.hearingAt`. UX melhorada: selo/rótulo "Audiência" na agenda, na lista de prazos e card de audiência no detalhe do processo (sem migration).
+- **Manter como prazo — prós:** zero migração; herda alertas/cores/agenda/RBAC prontos; um só fluxo operacional. **Contras:** sem campos próprios (local, vara, resultado, partes intimadas); duplicidade conceitual com `hearingAt`.
+- **Entidade própria — prós:** campos ricos e relatórios específicos; agenda dedicada. **Contras:** migration + rotas + telas + RLS novos; retrabalho de integração com alertas.
+- **Recomendação:** manter como prazo até a homologação medir a dor real; se o escritório precisar de local/vara/resultado, evoluir para entidade em sprint dedicada.
+
+**Pendências desta continuação:** login real ponta a ponta (credencial do admin do tenant), destino offsite de backup, reinício de SO da VPS (janela com vizinhos), monitor no uptime-kuma, decisão audiência, papel↔área jurídica (não modelado) e status financeiro "em negociação" (exigiria enum/migration — decisão de produto).
+
 ---
 
 > **Registro incremental:** este documento é atualizado a cada etapa executada (seção 8 das regras de implementação).

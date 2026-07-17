@@ -2,9 +2,9 @@ import Link from "next/link";
 import { formatDate } from "@/lib/format";
 import { StatusBadge } from "./status-badge";
 
-interface CalendarDeadline { id: string; caseId?: string; title: string; dueAt: string; color: string; client: { name: string }; responsibleUser?: { name: string } }
+interface CalendarDeadline { id: string; caseId?: string; title: string; type?: string; dueAt: string; color: string; client: { name: string }; responsibleUser?: { name: string } }
 function dateKey(value: Date | string) { const date = new Date(value); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function DeadlineItems({ items, compact = false }: { items: CalendarDeadline[]; compact?: boolean }) { return <div className="space-y-2">{items.map((item) => <div key={item.id} className="rounded border-l-2 border-primary bg-muted/40 p-2"><p className="truncate text-xs font-medium">{item.title}</p>{!compact && <><p className="truncate text-xs text-muted-foreground">{item.client.name}</p><div className="mt-1 flex items-center justify-between gap-2"><StatusBadge value={item.color} />{item.caseId && <Link className="text-xs text-cyan-600" href={`/processos/${item.caseId}`}>Processo</Link>}</div></>}</div>)}</div>; }
+function DeadlineItems({ items, compact = false }: { items: CalendarDeadline[]; compact?: boolean }) { return <div className="space-y-2">{items.map((item) => <div key={item.id} className="rounded border-l-2 border-primary bg-muted/40 p-2">{item.type === "AUDIENCIA" && <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600">Audiência</p>}<p className="truncate text-xs font-medium">{item.title}</p>{!compact && <><p className="truncate text-xs text-muted-foreground">{item.client.name}</p><div className="mt-1 flex items-center justify-between gap-2"><StatusBadge value={item.color} />{item.caseId && <Link className="text-xs text-cyan-600" href={`/processos/${item.caseId}`}>Processo</Link>}</div></>}</div>)}</div>; }
 
 export function DeadlineCalendar({ items, mode = "list", referenceDate }: { items: CalendarDeadline[]; mode?: "month" | "week" | "list"; referenceDate?: string }) {
   const reference = referenceDate ? new Date(`${referenceDate}T12:00:00`) : new Date();
