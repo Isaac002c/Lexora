@@ -80,7 +80,9 @@ export default async function CasesPage({
                   parent: x.primaryBranchId,
                 })),
               },
-              { name: "caseType", label: "Tipo de processo", required: true },
+              { name: "caseType", label: "Tipo / categoria", required: true, placeholder: "Ex.: Reclamação trabalhista" },
+              { name: "processNumber", label: "Número do processo", placeholder: "0000000-00.0000.0.00.0000" },
+              { name: "opposingParty", label: "Parte contrária" },
               {
                 name: "legalAreaId",
                 label: "Área jurídica",

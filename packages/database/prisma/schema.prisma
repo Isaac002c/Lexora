@@ -441,6 +441,7 @@ model LegalCase {
   caseType             String     @map("case_type")
   processNumber        String?    @map("process_number")
   processNumberSearch  String?    @map("process_number_search")
+  opposingParty        String?    @map("opposing_party")
   status               CaseStatus @default(EM_ANALISE)
   entryDate            DateTime   @map("entry_date") @db.Date
   distributionDate     DateTime?  @map("distribution_date") @db.Date

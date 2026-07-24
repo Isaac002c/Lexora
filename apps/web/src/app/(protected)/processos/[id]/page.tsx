@@ -16,6 +16,7 @@ interface CaseDetail {
   id: string;
   caseType: string;
   processNumber?: string;
+  opposingParty?: string;
   status: string;
   entryDate: string;
   distributionDate?: string;
@@ -77,6 +78,11 @@ export default async function CaseDetailPage({
                 name: "processNumber",
                 label: "Número do processo",
                 defaultValue: item.processNumber,
+              },
+              {
+                name: "opposingParty",
+                label: "Parte contrária",
+                defaultValue: item.opposingParty,
               },
               {
                 name: "distributionDate",
@@ -145,6 +151,12 @@ export default async function CaseDetailPage({
             <CardTitle className="text-sm">Distribuição</CardTitle>
           </CardHeader>
           <CardContent>{formatDate(item.distributionDate)}</CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Parte contrária</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">{item.opposingParty ?? "Não informada"}</CardContent>
         </Card>
         {item.hearingAt && (
           <Card>

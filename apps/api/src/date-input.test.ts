@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attendanceCreateSchema, caseDeadlineCreateSchema, deadlineCreateSchema } from "@chronostek/contracts";
+import { attendanceCreateSchema, caseCreateSchema, caseDeadlineCreateSchema, deadlineCreateSchema } from "@chronostek/contracts";
 
 const ids = {
   branchId: "11111111-1111-4111-8111-111111111111",
@@ -81,5 +81,20 @@ describe("#2 origem do atendimento como lista fechada", () => {
       origin: "",
     });
     expect(parsed.origin).toBeUndefined();
+  });
+});
+
+describe("#6 número do processo e parte contrária separados do tipo/categoria", () => {
+  const baseCase = { branchId: ids.branchId, legalAreaId: ids.legalAreaId, clientId: ids.clientId, entryDate: "2026-08-01" };
+  it("aceita número e parte contrária como campos próprios", () => {
+    const parsed = caseCreateSchema.parse({ ...baseCase, caseType: "Reclamação trabalhista", processNumber: "0001234-56.2026.5.02.0001", opposingParty: "Empresa X Ltda" });
+    expect(parsed.processNumber).toBe("0001234-56.2026.5.02.0001");
+    expect(parsed.opposingParty).toBe("Empresa X Ltda");
+    expect(parsed.caseType).toBe("Reclamação trabalhista");
+  });
+  it("número e parte contrária são opcionais (não confundir com o tipo)", () => {
+    const parsed = caseCreateSchema.parse({ ...baseCase, caseType: "Cível" });
+    expect(parsed.processNumber).toBeUndefined();
+    expect(parsed.opposingParty).toBeUndefined();
   });
 });

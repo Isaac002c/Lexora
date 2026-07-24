@@ -37,7 +37,9 @@ casesRouter.post("/", requireAuth, requirePermission("case.create"), async (requ
       assertUserBranchAccess(tx, auth.tenantId, input.attorneyId, input.branchId),
     ]);
     const legalCase = await tx.legalCase.create({ data: {
-      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseType: input.caseType, entryDate: input.entryDate, notes: input.notes,
+      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseType: input.caseType,
+      processNumber: input.processNumber, processNumberSearch: input.processNumber ? normalizeSearch(input.processNumber).replace(/\s/g, "") : undefined,
+      opposingParty: input.opposingParty, entryDate: input.entryDate, notes: input.notes,
       parties: { create: { clientId: input.clientId, isPrimary: true } },
       assignments: { create: [input.responsibleUserId ? { userId: input.responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null, input.attorneyId ? { userId: input.attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)) },
     } });
