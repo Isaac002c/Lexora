@@ -82,7 +82,7 @@ export const caseCreateSchema = z.object({
   branchId: z.string().uuid(),
   legalAreaId: z.string().uuid(),
   clientId: z.string().uuid(),
-  caseType: z.string().trim().min(2).max(160),
+  caseType: z.string().trim().min(2).max(160).optional(),
   processNumber: optionalText,
   opposingParty: optionalText,
   responsibleUserId: optionalUuid,

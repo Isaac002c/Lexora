@@ -37,7 +37,7 @@ casesRouter.post("/", requireAuth, requirePermission("case.create"), async (requ
       assertUserBranchAccess(tx, auth.tenantId, input.attorneyId, input.branchId),
     ]);
     const legalCase = await tx.legalCase.create({ data: {
-      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseType: input.caseType,
+      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseType: input.caseType ?? "Não classificado",
       processNumber: input.processNumber, processNumberSearch: input.processNumber ? normalizeSearch(input.processNumber).replace(/\s/g, "") : undefined,
       opposingParty: input.opposingParty, entryDate: input.entryDate, notes: input.notes,
       parties: { create: { clientId: input.clientId, isPrimary: true } },
