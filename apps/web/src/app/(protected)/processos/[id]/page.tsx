@@ -216,16 +216,6 @@ export default async function CaseDetailPage({
             ])}
           />
         </div>
-        <div>
-          <h2 className="mb-3 text-lg font-semibold">Documentos</h2>
-          <DataTable
-            columns={["Documento", "Status"]}
-            rows={item.documents.map((x) => [
-              x.name,
-              <StatusBadge key={x.id} value={x.status} />,
-            ])}
-          />
-        </div>
       </div>
       <section className="mt-6">
         <h2 className="mb-3 text-lg font-semibold">Checklist</h2>

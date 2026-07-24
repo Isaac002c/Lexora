@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Building2, CalendarDays, CheckSquare, CircleDollarSign, ClipboardList, FileText, Gavel, LayoutDashboard, LogOut, Menu, Scale, Users, X } from "lucide-react";
+import { BarChart3, Building2, CalendarDays, CheckSquare, CircleDollarSign, ClipboardList, Gavel, LayoutDashboard, LogOut, Menu, Scale, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -16,7 +16,6 @@ const items = [
   ["Processos", "/processos", Gavel, "case.read"],
   ["Prazos", "/prazos", CalendarDays, "deadline.read"],
   ["Calendário", "/calendario", CalendarDays, "deadline.read"],
-  ["Documentos", "/documentos", FileText, "document.read"],
   ["Checklists", "/checklists", CheckSquare, "document.read"],
   ["Financeiro", "/financeiro", CircleDollarSign, "finance.read"],
   ["Relatórios", "/relatorios", BarChart3, "report.read"],
