@@ -19,7 +19,16 @@ export const paginationSchema = z.object({
 export type PaginationInput = z.infer<typeof paginationSchema>;
 
 export const loginSchema = z.object({
-  tenantSlug: z.string().trim().min(2).max(80).transform((value) => value.toLowerCase()),
+  // Opcional: o escritório (tenant) é resolvido pelo e-mail. Continua aceito para
+  // compatibilidade e para desambiguar caso o mesmo e-mail exista em dois tenants.
+  tenantSlug: z
+    .string()
+    .trim()
+    .min(2)
+    .max(80)
+    .transform((value) => value.toLowerCase())
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
   email: z.string().trim().email().max(254).transform((value) => value.toLowerCase()),
   password: z.string().min(8).max(128),
 });

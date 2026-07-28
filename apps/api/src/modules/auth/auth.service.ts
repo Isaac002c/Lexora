@@ -26,39 +26,57 @@ function isPermissionCode(value: string): value is PermissionCode {
   return (knownPermissions as readonly string[]).includes(value);
 }
 
+// Limite defensivo: evita que o login varra um número arbitrário de escritórios.
+const MAX_LOGIN_TENANTS = 10;
+
+// O usuário não escolhe o escritório: ele é resolvido pelo e-mail. `tenants` não tem
+// RLS (é a tabela de descoberta), mas a busca do usuário roda SEMPRE dentro do
+// contexto do tenant (`withTenant`), preservando o isolamento. Se `tenantSlug` vier
+// informado, ele restringe a busca — útil para desambiguar e-mail repetido.
+async function candidateTenantIds(input: LoginInput): Promise<string[]> {
+  if (input.tenantSlug) {
+    const tenant = await prisma.tenant.findUnique({ where: { slug: input.tenantSlug }, select: { id: true, status: true } });
+    return tenant && tenant.status === "ACTIVE" ? [tenant.id] : [];
+  }
+  const tenants = await prisma.tenant.findMany({ where: { status: "ACTIVE" }, select: { id: true }, orderBy: { createdAt: "asc" }, take: MAX_LOGIN_TENANTS });
+  return tenants.map((tenant) => tenant.id);
+}
+
 export async function login(input: LoginInput, metadata: { ip?: string; userAgent?: string }) {
-  const tenant = await prisma.tenant.findUnique({ where: { slug: input.tenantSlug }, select: { id: true, tradeName: true, status: true } });
-  if (!tenant || tenant.status !== "ACTIVE") throw new AppError(401, "Credenciais inválidas", "Escritório, e-mail ou senha inválidos.");
+  // A senha é quem desambigua: só há sucesso onde e-mail E senha conferem. Falhas
+  // retornam sempre a mesma mensagem genérica (sem enumeração de usuário/escritório).
+  for (const tenantId of await candidateTenantIds(input)) {
+    const result = await withTenant(tenantId, async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { tenantId_emailNormalized: { tenantId, emailNormalized: input.email } },
+        select: { id: true, passwordHash: true, status: true, forcePasswordChange: true },
+      });
+      if (!user || user.status !== "ACTIVE" || !(await argon2.verify(user.passwordHash, input.password))) return null;
 
-  return withTenant(tenant.id, async (tx) => {
-    const user = await tx.user.findUnique({
-      where: { tenantId_emailNormalized: { tenantId: tenant.id, emailNormalized: input.email } },
-      select: { id: true, name: true, email: true, passwordHash: true, status: true, forcePasswordChange: true },
-    });
-    if (!user || user.status !== "ACTIVE" || !(await argon2.verify(user.passwordHash, input.password))) {
-      throw new AppError(401, "Credenciais inválidas", "Escritório, e-mail ou senha inválidos.");
-    }
+      const now = new Date();
+      const rawToken = `${tenantId}.${randomBytes(48).toString("base64url")}`;
+      const session = await tx.session.create({
+        data: {
+          tenantId,
+          userId: user.id,
+          tokenHash: tokenHash(rawToken),
+          expiresAt: new Date(now.getTime() + SESSION_ABSOLUTE_MS),
+          idleExpiresAt: new Date(now.getTime() + SESSION_IDLE_MS),
+          ipAddress: metadata.ip,
+          userAgent: metadata.userAgent?.slice(0, 500),
+        },
+      });
+      await tx.user.update({ where: { tenantId_id: { tenantId, id: user.id } }, data: { lastLoginAt: now } });
+      await tx.auditLog.create({
+        data: { tenantId, actorUserId: user.id, entityType: "SESSION", entityId: session.id, action: "AUTH_LOGIN", description: "Usuário autenticado", ipAddress: metadata.ip, userAgent: metadata.userAgent?.slice(0, 500) },
+      });
 
-    const now = new Date();
-    const rawToken = `${tenant.id}.${randomBytes(48).toString("base64url")}`;
-    const session = await tx.session.create({
-      data: {
-        tenantId: tenant.id,
-        userId: user.id,
-        tokenHash: tokenHash(rawToken),
-        expiresAt: new Date(now.getTime() + SESSION_ABSOLUTE_MS),
-        idleExpiresAt: new Date(now.getTime() + SESSION_IDLE_MS),
-        ipAddress: metadata.ip,
-        userAgent: metadata.userAgent?.slice(0, 500),
-      },
+      return { token: rawToken, expiresAt: session.expiresAt, forcePasswordChange: user.forcePasswordChange };
     });
-    await tx.user.update({ where: { tenantId_id: { tenantId: tenant.id, id: user.id } }, data: { lastLoginAt: now } });
-    await tx.auditLog.create({
-      data: { tenantId: tenant.id, actorUserId: user.id, entityType: "SESSION", entityId: session.id, action: "AUTH_LOGIN", description: "Usuário autenticado", ipAddress: metadata.ip, userAgent: metadata.userAgent?.slice(0, 500) },
-    });
+    if (result) return result;
+  }
 
-    return { token: rawToken, expiresAt: session.expiresAt, forcePasswordChange: user.forcePasswordChange };
-  });
+  throw new AppError(401, "Credenciais inválidas", "E-mail ou senha inválidos.");
 }
 
 export async function resolveSession(rawToken: string) {

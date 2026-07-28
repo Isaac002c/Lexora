@@ -15,7 +15,8 @@ export function LoginForm() {
   const [error, setError] = useState<string>();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { tenantSlug: "demo-chronostek", email: "douglas@demo.chronostek.com.br", password: "" },
+    // Sem credenciais pré-preenchidas: o escritório é resolvido pelo e-mail no backend.
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: LoginInput) {
@@ -29,11 +30,6 @@ export function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-      <div className="space-y-2">
-        <Label htmlFor="tenantSlug">Ambiente do escritório</Label>
-        <Input id="tenantSlug" autoComplete="organization" {...register("tenantSlug")} />
-        {errors.tenantSlug && <p className="text-xs text-red-400">{errors.tenantSlug.message}</p>}
-      </div>
       <div className="space-y-2">
         <Label htmlFor="email">E-mail</Label>
         <Input id="email" type="email" autoComplete="username" {...register("email")} />
