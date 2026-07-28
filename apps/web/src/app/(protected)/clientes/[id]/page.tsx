@@ -85,7 +85,30 @@ export default async function ClientDetailPage({
           <CardContent>{formatDate(item.birthDate)}</CardContent>
         </Card>
       </div>
-      <h2 className="mb-3 text-lg font-semibold">Processos</h2>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold">Processos</h2>
+        {user?.permissions.includes("case.create") && item.status !== "ARCHIVED" && (
+          <CreatePanel
+            title={`Novo processo — ${item.name}`}
+            endpoint="/api/v1/cases"
+            buttonLabel="Novo processo"
+            fields={[
+              // Cliente e filial ficam travados no contexto do cliente aberto:
+              // o vínculo já nasce consistente (sem o erro "cliente não pertence à filial").
+              { name: "clientId", label: "Cliente", type: "select", required: true, defaultValue: item.id, options: [{ value: item.id, label: item.name }] },
+              { name: "branchId", label: "Filial", type: "select", required: true, defaultValue: item.primaryBranch.id, options: [{ value: item.primaryBranch.id, label: item.primaryBranch.name }] },
+              { name: "processNumber", label: "Número do processo", placeholder: "0000000-00.0000.0.00.0000" },
+              { name: "opposingParty", label: "Parte contrária" },
+              { name: "caseType", label: "Tipo / categoria", placeholder: "Ex.: Reclamação trabalhista" },
+              { name: "legalAreaId", label: "Área jurídica", type: "select", required: true, options: lookups.legalAreas.map((area) => ({ value: area.id, label: area.name })) },
+              { name: "responsibleUserId", label: "Responsável interno", type: "select", options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
+              { name: "attorneyId", label: "Advogado", type: "select", options: lookups.users.map((attorney) => ({ value: attorney.id, label: attorney.name })) },
+              { name: "entryDate", label: "Data de entrada", type: "date", required: true },
+              { name: "notes", label: "Observações", type: "textarea" },
+            ]}
+          />
+        )}
+      </div>
       <DataTable
         columns={["Processo", "Área", "Status"]}
         rows={item.caseParties.map(({ case: legalCase }) => [
