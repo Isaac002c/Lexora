@@ -37,13 +37,25 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Identidade Telun — o accent (antes ciano do Chronostek) reaponta para o
+        // Lilás Elétrico; "navy" reaponta para o Cósmico. Assim todo o app é
+        // re-skinado a partir daqui, sem hex espalhado pelos componentes.
         cyan: {
-          400: "#22d3ee",
-          500: "#06b6d4",
+          300: "#CBB2FF",
+          400: "#A56FFF",
+          500: "#9260FF",
+          600: "#8B5CF6",
         },
         navy: {
-          900: "#07111f",
-          950: "#030914",
+          900: "#12121F",
+          950: "#0B0B12",
+        },
+        telun: {
+          cosmico: "#0B0B12",
+          violeta: "#3B1F6A",
+          lilas: "#A56FFF",
+          cobre: "#FF6A3D",
+          dourado: "#FFD8A6",
         },
       },
       borderRadius: {
@@ -52,7 +64,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        glow: "0 0 40px rgba(34, 211, 238, 0.12)",
+        glow: "0 0 40px rgba(165, 111, 255, 0.14)",
       },
     },
   },

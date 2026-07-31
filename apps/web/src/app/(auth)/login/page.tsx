@@ -8,7 +8,7 @@ export default async function LoginPage() {
   if (await getCurrentUser()) redirect("/dashboard");
   return (
     <main className="relative grid min-h-screen place-items-center overflow-hidden bg-navy-950 px-6 py-12">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(6,182,212,0.16),transparent_35%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,rgba(165,111,255,0.18),transparent_35%)]" />
       <div className="relative w-full max-w-md">
         <div className="mb-8 flex items-center justify-center gap-3">
           <div className="grid h-11 w-11 place-items-center rounded-xl border border-cyan-400/30 bg-cyan-400/10"><Scale className="h-5 w-5 text-cyan-400" /></div>
@@ -22,6 +22,7 @@ export default async function LoginPage() {
           <CardContent><LoginForm /></CardContent>
         </Card>
         <p className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500"><ShieldCheck className="h-3.5 w-3.5" /> Sessão protegida e operações auditadas</p>
+        <p className="mt-2 text-center text-[10px] tracking-wide text-slate-600">Lexora · um produto Telun</p>
       </div>
     </main>
   );

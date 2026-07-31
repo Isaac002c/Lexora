@@ -5,8 +5,10 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Lexora | Gestão Jurídica Inteligente",
-  description: "Plataforma segura de gestão jurídica multi-tenant.",
+  title: "Lexora — Gestão Jurídica",
+  description: "Lexora, um produto Telun. Plataforma segura de gestão jurídica multi-tenant.",
+  applicationName: "Lexora",
+  authors: [{ name: "Telun" }],
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

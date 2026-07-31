@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   const upstream = await fetch(`${apiUrl}/v1/auth/login`, {
     method: "POST",
-    headers: { "content-type": "application/json", "user-agent": request.headers.get("user-agent") ?? "chronostek-web" },
+    headers: { "content-type": "application/json", "user-agent": request.headers.get("user-agent") ?? "lexora-web" },
     body: JSON.stringify(parsed.data),
     cache: "no-store",
   });

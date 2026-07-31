@@ -45,7 +45,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
           return <Link key={href} href={href} onClick={() => setOpen(false)} className={cn("flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors", active ? "bg-cyan-400/10 text-cyan-300" : "text-slate-400 hover:bg-white/5 hover:text-white")}><Icon className="h-4 w-4" />{label}</Link>;
         })}
       </nav>
-      <div className="border-t border-white/10 p-4"><div className="mb-3 px-2"><p className="truncate text-sm font-medium text-white">{user.userName}</p><p className="truncate text-xs text-slate-500">{user.userEmail}</p></div><Button variant="ghost" className="w-full justify-start gap-3 text-slate-400" onClick={signOut}><LogOut className="h-4 w-4" />Sair</Button></div>
+      <div className="border-t border-white/10 p-4"><div className="mb-3 px-2"><p className="truncate text-sm font-medium text-white">{user.userName}</p><p className="truncate text-xs text-slate-500">{user.userEmail}</p></div><Button variant="ghost" className="w-full justify-start gap-3 text-slate-400" onClick={signOut}><LogOut className="h-4 w-4" />Sair</Button><p className="mt-3 px-2 text-[10px] tracking-wide text-slate-600">Lexora · um produto Telun</p></div>
     </aside>
   );
 

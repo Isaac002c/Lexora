@@ -8,36 +8,38 @@
     --foreground: 220 45% 9%;
     --card: 0 0% 100%;
     --card-foreground: 220 45% 9%;
-    --primary: 188 86% 43%;
-    --primary-foreground: 220 50% 7%;
-    --secondary: 217 30% 92%;
-    --secondary-foreground: 220 40% 13%;
-    --muted: 216 24% 93%;
-    --muted-foreground: 217 15% 42%;
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 216 24% 86%;
-    --input: 216 24% 86%;
-    --ring: 188 86% 43%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 262 30% 94%;
+    --secondary-foreground: 262 40% 18%;
+    --muted: 250 24% 94%;
+    --muted-foreground: 250 12% 40%;
+    --destructive: 14 90% 52%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 255 24% 86%;
+    --input: 255 24% 86%;
+    --ring: 262 83% 58%;
     --radius: 0.75rem;
   }
 
+  /* Tema Telun (escuro, predominante) — Cósmico de fundo, Lilás Elétrico como
+     accent interativo, Cobre Luminoso para alertas. Tudo em tokens. */
   .dark {
-    --background: 218 73% 5%;
-    --foreground: 210 40% 98%;
-    --card: 217 59% 8%;
-    --card-foreground: 210 40% 98%;
-    --primary: 188 86% 53%;
-    --primary-foreground: 220 50% 7%;
-    --secondary: 217 35% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 35% 13%;
-    --muted-foreground: 215 20% 65%;
-    --destructive: 0 63% 42%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 30% 18%;
-    --input: 217 30% 18%;
-    --ring: 188 86% 53%;
+    --background: 240 24% 6%;
+    --foreground: 250 20% 96%;
+    --card: 250 22% 9%;
+    --card-foreground: 250 20% 96%;
+    --primary: 262 100% 72%;
+    --primary-foreground: 240 30% 8%;
+    --secondary: 262 28% 16%;
+    --secondary-foreground: 250 20% 96%;
+    --muted: 250 18% 13%;
+    --muted-foreground: 250 12% 66%;
+    --destructive: 14 100% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 22% 18%;
+    --input: 260 22% 18%;
+    --ring: 262 100% 72%;
   }
 
   * {
