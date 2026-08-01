@@ -7,6 +7,8 @@ import { StatusBadge } from "@/components/status-badge";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Pagination } from "@/components/pagination";
 import { ModuleNav } from "@/features/shared/components/module-nav";
+import { SoftDeleteAction } from "@/components/soft-delete-action";
+import { getCurrentUser } from "@/lib/server-api";
 
 interface ClientList {
   items: Array<{
@@ -16,6 +18,7 @@ interface ClientList {
     phone?: string;
     taxIdLast4?: string;
     status: string;
+    deletedAt?: string;
     primaryBranch: { name: string };
     responsibleUser?: { name: string };
     _count: { attendances: number; caseParties: number };
@@ -28,15 +31,16 @@ interface ClientList {
 export default async function ClientsPage({
   searchParams,
 }: {
-    searchParams: Promise<{ search?: string; page?: string; branchId?: string; status?: string }>;
+    searchParams: Promise<{ search?: string; page?: string; branchId?: string; status?: string; deleted?: "exclude" | "only" }>;
 }) {
   const query = await searchParams;
   const { search } = query;
-  const [data, lookups] = await Promise.all([
+  const [data, lookups, user] = await Promise.all([
     fetchData<ClientList>(
-      `/v1/clients?${new URLSearchParams({ search: search ?? "", page: query.page ?? "1", branchId: query.branchId ?? "", status: query.status ?? "" })}`,
+      `/v1/clients?${new URLSearchParams({ search: search ?? "", page: query.page ?? "1", branchId: query.branchId ?? "", status: query.status ?? "", deleted: query.deleted ?? "exclude" })}`,
     ),
     fetchData<Lookups>("/v1/lookups"),
+    getCurrentUser(),
   ]);
   return (
     <>
@@ -95,7 +99,7 @@ export default async function ClientsPage({
           />
         }
       />
-      <ModuleNav items={[{ label: "Todos", href: "/clientes" }, { label: "Ativos", href: "/clientes?status=ACTIVE" }, { label: "Inativos", href: "/clientes?status=INACTIVE" }, { label: "Arquivados", href: "/clientes?status=ARCHIVED" }]} />
+      <ModuleNav items={[{ label: "Todos", href: "/clientes" }, { label: "Ativos", href: "/clientes?status=ACTIVE" }, { label: "Inativos", href: "/clientes?status=INACTIVE" }, { label: "Arquivados", href: "/clientes?status=ARCHIVED" }, ...(user?.permissions.includes("client.restore") ? [{ label: "Excluídos", href: "/clientes?deleted=only" }] : [])]} />
       <SearchForm defaultValue={search} placeholder="Nome, e-mail ou CPF/CNPJ">
         <select
           name="branchId"
@@ -118,6 +122,7 @@ export default async function ClientsPage({
           "Responsável",
           "Vínculos",
           "Status",
+          "Ações",
         ]}
         emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum cliente encontrado com os filtros aplicados." : "Nenhum cliente cadastrado ainda. Use “Novo cliente” para começar."}
         rows={data.items.map((item) => [
@@ -139,6 +144,9 @@ export default async function ClientsPage({
           item.responsibleUser?.name ?? "—",
           `${item._count.attendances} atend. · ${item._count.caseParties} proc.`,
           <StatusBadge key="status" value={item.status} />,
+          item.deletedAt
+            ? user?.permissions.includes("client.restore") && <SoftDeleteAction key="restore" restore endpoint={`/api/v1/clients/${item.id}/restore`} />
+            : user?.permissions.includes("client.delete") && <SoftDeleteAction key="delete" endpoint={`/api/v1/clients/${item.id}`} />,
         ])}
       />
       <Pagination

@@ -2,7 +2,7 @@ import type { TenantTransaction } from "@chronostek/database";
 import { AppError } from "./app-error.js";
 
 function invalid(message: string): never {
-  throw new AppError(422, "Vínculo inválido", message, "https://chronostek.com.br/problems/invalid-relation");
+  throw new AppError(422, "Vínculo inválido", message, "https://lexora.chronostek.com.br/problems/invalid-relation");
 }
 
 export async function assertLegalArea(tx: TenantTransaction, tenantId: string, legalAreaId?: string) {
@@ -22,7 +22,7 @@ export async function assertUserBranchAccess(tx: TenantTransaction, tenantId: st
 
 export async function assertClientBranch(tx: TenantTransaction, tenantId: string, clientId: string | undefined, branchId: string) {
   if (!clientId) return;
-  const client = await tx.client.findFirst({ where: { tenantId, id: clientId }, select: { primaryBranchId: true, status: true } });
+  const client = await tx.client.findFirst({ where: { tenantId, id: clientId, deletedAt: null }, select: { primaryBranchId: true, status: true } });
   if (!client) invalid("Cliente não encontrado neste escritório. Selecione um cliente válido.");
   if (client.status === "ARCHIVED") invalid("Este cliente está arquivado e não pode ser usado em novos processos. Reative o cliente ou selecione outro.");
   if (client.primaryBranchId !== branchId) invalid("Este cliente não está vinculado à filial selecionada. Escolha outra filial, selecione um cliente compatível ou solicite o vínculo do cliente à filial.");
@@ -37,6 +37,7 @@ export async function assertCaseRelations(
     where: {
       tenantId,
       id: input.caseId,
+      deletedAt: null,
       branchId: input.branchId,
       ...(input.legalAreaId ? { legalAreaId: input.legalAreaId } : {}),
       ...(input.clientId ? { parties: { some: { clientId: input.clientId } } } : {}),

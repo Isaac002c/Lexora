@@ -17,6 +17,11 @@ import { checklistsRouter } from "./modules/checklists/checklists.routes.js";
 import { reportsRouter } from "./modules/reports/reports.routes.js";
 import { adminRouter } from "./modules/admin/admin.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
+import { notificationsRouter } from "./modules/notifications/notifications.routes.js";
+import { searchRouter } from "./modules/search/search.routes.js";
+import { hearingsRouter } from "./modules/hearings/hearings.routes.js";
+import { tasksRouter } from "./modules/tasks/tasks.routes.js";
+import { calendarRouter } from "./modules/calendar/calendar.routes.js";
 
 const pinoHttp = pinoHttpModule as unknown as typeof import("pino-http").default;
 
@@ -45,7 +50,7 @@ export function createApp(webUrl: string) {
   );
 
   app.get("/health", (_request, response) => {
-    response.json({ status: "ok", service: "chronostek-api" });
+    response.json({ status: "ok", service: "lexora-api" });
   });
 
   app.use("/v1/auth", authRouter);
@@ -61,10 +66,15 @@ export function createApp(webUrl: string) {
   app.use("/v1/reports", reportsRouter);
   app.use("/v1/admin", adminRouter);
   app.use("/v1/audit", auditRouter);
+  app.use("/v1/notifications", notificationsRouter);
+  app.use("/v1/search", searchRouter);
+  app.use("/v1/hearings", hearingsRouter);
+  app.use("/v1/tasks", tasksRouter);
+  app.use("/v1/calendar", calendarRouter);
 
   app.use((_request, response) => {
     response.status(404).type("application/problem+json").json({
-      type: "https://chronostek.com.br/problems/not-found",
+      type: "https://lexora.chronostek.com.br/problems/not-found",
       title: "Recurso não encontrado",
       status: 404,
     });

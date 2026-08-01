@@ -1,5 +1,6 @@
 import {
   collectionNoteSchema,
+  deletionReasonSchema,
   feeContractCreateSchema,
   feeContractUpdateSchema,
   listQuerySchema,
@@ -14,8 +15,9 @@ import multer from "multer";
 import { z } from "zod";
 import { installmentAging } from "../../lib/deadline.js";
 import { allowedBranches, assertBranch } from "../../lib/tenant.js";
-import { notFound } from "../../lib/app-error.js";
+import { forbidden, notFound } from "../../lib/app-error.js";
 import { assertCaseRelations, assertClientBranch } from "../../lib/entity-access.js";
+import { recordAudit } from "../../lib/audit.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 import { removeLocalFile, resolveStoredFile, saveLocalFile } from "../documents/storage.js";
 
@@ -30,9 +32,11 @@ financeRouter.get(
   async (request, response) => {
     const auth = request.auth!;
     const query = financeQuerySchema.parse(request.query);
+    if (query.deleted !== "exclude" && !auth.permissions.includes("finance.restore")) throw forbidden();
     const branches = allowedBranches(auth, query.branchId);
     const where: Prisma.FeeContractWhereInput = {
       tenantId: auth.tenantId,
+      ...(query.deleted === "only" ? { deletedAt: { not: null } } : query.deleted === "exclude" ? { deletedAt: null } : {}),
       ...(branches ? { branchId: { in: branches } } : {}),
       ...(query.status ? { status: query.status as never } : {}),
       ...(query.search
@@ -52,7 +56,7 @@ financeRouter.get(
             client: { select: { name: true } },
             branch: { select: { name: true } },
             case: { select: { caseType: true, processNumber: true } },
-            installments: { orderBy: { installmentNumber: "asc" } },
+            installments: { where: { deletedAt: null }, orderBy: { installmentNumber: "asc" } },
           },
           orderBy: { createdAt: "desc" },
           skip: (query.page - 1) * query.pageSize,
@@ -92,14 +96,14 @@ financeRouter.get("/summary", requireAuth, requirePermission("finance.read"), as
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const summary = await withTenant(auth.tenantId, async (tx) => {
     const [contracted, activeContracts, upcoming, overdue, delinquent, received, costs, completed] = await Promise.all([
-      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { feeAmount: true } }),
-      tx.feeContract.count({ where: { tenantId: auth.tenantId, status: "ACTIVE", ...(branchFilter ? { branchId: branchFilter } : {}) } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { gte: now, lte: new Date(now.getTime() + 7 * 86_400_000) }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { lt: now }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { lt: new Date(now.getTime() - 15 * 86_400_000) }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
-      tx.paymentInstallment.aggregate({ where: { tenantId: auth.tenantId, status: "PAID", paidAt: { gte: monthStart }, contract: branchFilter ? { branchId: branchFilter } : undefined }, _sum: { amount: true } }),
-      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { costAmount: true } }),
-      tx.feeContract.count({ where: { tenantId: auth.tenantId, status: "COMPLETED", ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { feeAmount: true } }),
+      tx.feeContract.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "ACTIVE", ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { gte: now, lte: new Date(now.getTime() + 7 * 86_400_000) }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { lt: now }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { lt: new Date(now.getTime() - 15 * 86_400_000) }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
+      tx.paymentInstallment.aggregate({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PAID", paidAt: { gte: monthStart }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } }, _sum: { amount: true } }),
+      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { costAmount: true } }),
+      tx.feeContract.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "COMPLETED", ...(branchFilter ? { branchId: branchFilter } : {}) } }),
     ]);
     return { contracted: contracted._sum.feeAmount?.toFixed(2) ?? "0.00", activeContracts, upcoming, overdue, delinquent, receivedThisMonth: received._sum.amount?.toFixed(2) ?? "0.00", costs: costs._sum.costAmount?.toFixed(2) ?? "0.00", completedContracts: completed };
   });
@@ -110,8 +114,9 @@ financeRouter.get("/contracts/:id", requireAuth, requirePermission("finance.read
   const auth = request.auth!;
   const branches = allowedBranches(auth);
   const item = await withTenant(auth.tenantId, async (tx) => {
-    const contract = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), ...(branches ? { branchId: { in: branches } } : {}) }, include: { client: { select: { id: true, name: true } }, branch: { select: { id: true, name: true } }, case: { select: { id: true, caseType: true, processNumber: true } }, installments: { orderBy: { installmentNumber: "asc" } } } });
+    const contract = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), ...(branches ? { branchId: { in: branches } } : {}) }, include: { client: { select: { id: true, name: true } }, branch: { select: { id: true, name: true } }, case: { select: { id: true, caseType: true, processNumber: true } }, installments: { where: { deletedAt: null }, orderBy: { installmentNumber: "asc" } } } });
     if (!contract) throw notFound();
+    if (contract.deletedAt && !auth.permissions.includes("finance.restore")) throw notFound();
     const proofIds = contract.installments.flatMap((installment) => installment.paymentProofFileId ? [installment.paymentProofFileId] : []);
     const proofs = await tx.storedFile.findMany({ where: { tenantId: auth.tenantId, id: { in: proofIds }, deletedAt: null }, select: { id: true, originalName: true, mimeType: true, sizeBytes: true } });
     return { ...contract, feeAmount: contract.feeAmount.toFixed(2), costAmount: contract.costAmount.toFixed(2), installments: contract.installments.map((installment) => ({ ...installment, amount: installment.amount.toFixed(2), agingStatus: installmentAging(installment.dueDate, installment.status), proof: proofs.find((proof) => proof.id === installment.paymentProofFileId) ? { ...proofs.find((proof) => proof.id === installment.paymentProofFileId)!, sizeBytes: proofs.find((proof) => proof.id === installment.paymentProofFileId)!.sizeBytes.toString() } : null })) };
@@ -123,7 +128,7 @@ financeRouter.patch("/contracts/:id", requireAuth, requirePermission("finance.up
   const auth = request.auth!;
   const input = feeContractUpdateSchema.parse(request.body);
   const item = await withTenant(auth.tenantId, async (tx) => {
-    const existing = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id) } });
+    const existing = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null } });
     if (!existing) throw notFound();
     assertBranch(auth, existing.branchId);
     const updated = await tx.feeContract.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: input });
@@ -137,11 +142,11 @@ financeRouter.post("/contracts/:id/collection-notes", requireAuth, requirePermis
   const auth = request.auth!;
   const input = collectionNoteSchema.parse(request.body);
   await withTenant(auth.tenantId, async (tx) => {
-    const contract = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id) } });
+    const contract = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null } });
     if (!contract) throw notFound();
     assertBranch(auth, contract.branchId);
     if (input.installmentId) {
-      const installment = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: input.installmentId, contractId: contract.id }, select: { id: true } });
+      const installment = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: input.installmentId, contractId: contract.id, deletedAt: null }, select: { id: true } });
       if (!installment) throw notFound("A parcela não pertence ao contrato informado.");
     }
     await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "FEE_CONTRACT", entityId: contract.id, action: "COLLECTION_NOTE_ADDED", description: input.note, metadata: input.installmentId ? { installmentId: input.installmentId } : undefined } });
@@ -221,7 +226,7 @@ financeRouter.post(
     const input = paymentSchema.parse(request.body);
     const item = await withTenant(auth.tenantId, async (tx) => {
       const existing = await tx.paymentInstallment.findFirst({
-        where: { tenantId: auth.tenantId, id: String(request.params.id) },
+        where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, contract: { deletedAt: null } },
         include: { contract: true },
       });
       if (!existing) throw notFound();
@@ -255,7 +260,7 @@ financeRouter.post(
 financeRouter.post("/installments/:id/proof", requireAuth, requirePermission("finance.update"), proofUpload.single("file"), async (request, response) => {
   const auth = request.auth!;
   if (!request.file) throw new Error("Arquivo obrigatório.");
-  const existing = await withTenant(auth.tenantId, (tx) => tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id) }, include: { contract: true } }));
+  const existing = await withTenant(auth.tenantId, (tx) => tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, contract: { deletedAt: null } }, include: { contract: true } }));
   if (!existing) throw notFound();
   assertBranch(auth, existing.contract.branchId);
   const saved = await saveLocalFile(auth.tenantId, request.file);
@@ -279,7 +284,7 @@ financeRouter.post("/installments/:id/proof", requireAuth, requirePermission("fi
 financeRouter.get("/installments/:id/proof", requireAuth, requirePermission("finance.read"), async (request, response) => {
   const auth = request.auth!;
   const data = await withTenant(auth.tenantId, async (tx) => {
-    const installment = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id) }, include: { contract: true } });
+    const installment = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, contract: { deletedAt: null } }, include: { contract: true } });
     if (!installment?.paymentProofFileId) throw notFound();
     assertBranch(auth, installment.contract.branchId);
     const file = await tx.storedFile.findFirst({ where: { tenantId: auth.tenantId, id: installment.paymentProofFileId, deletedAt: null } });
@@ -290,4 +295,58 @@ financeRouter.get("/installments/:id/proof", requireAuth, requirePermission("fin
   response.setHeader("content-length", data.sizeBytes.toString());
   response.setHeader("content-disposition", `attachment; filename*=UTF-8''${encodeURIComponent(data.originalName)}`);
   createReadStream(resolveStoredFile(data.objectKey)).pipe(response);
+});
+
+financeRouter.delete("/contracts/:id", requireAuth, requirePermission("finance.delete"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const existing = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...(branches ? { branchId: { in: branches } } : {}) } });
+    if (!existing) throw notFound();
+    const deleted = await tx.feeContract.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: new Date(), deletedById: auth.userId, deletionReason: reason } });
+    await recordAudit(tx, auth, request, { module: "FINANCEIRO", entityType: "FEE_CONTRACT", entityId: deleted.id, action: "CONTRACT_DELETED", description: "Contrato financeiro excluído logicamente", branchId: deleted.branchId, before: existing, after: deleted, reason });
+  });
+  response.status(204).send();
+});
+
+financeRouter.post("/contracts/:id/restore", requireAuth, requirePermission("finance.restore"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  const restored = await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const existing = await tx.feeContract.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: { not: null }, ...(branches ? { branchId: { in: branches } } : {}) } });
+    if (!existing) throw notFound();
+    const contract = await tx.feeContract.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: null, deletedById: null, deletionReason: null } });
+    await recordAudit(tx, auth, request, { module: "FINANCEIRO", entityType: "FEE_CONTRACT", entityId: contract.id, action: "CONTRACT_RESTORED", description: "Contrato financeiro restaurado", branchId: contract.branchId, before: existing, after: contract, reason });
+    return contract;
+  });
+  response.json({ id: restored.id });
+});
+
+financeRouter.delete("/installments/:id", requireAuth, requirePermission("finance.delete"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  await withTenant(auth.tenantId, async (tx) => {
+    const existing = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null }, include: { contract: true } });
+    if (!existing) throw notFound();
+    assertBranch(auth, existing.contract.branchId);
+    const deleted = await tx.paymentInstallment.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: new Date(), deletedById: auth.userId, deletionReason: reason } });
+    await recordAudit(tx, auth, request, { module: "FINANCEIRO", entityType: "PAYMENT_INSTALLMENT", entityId: deleted.id, action: "INSTALLMENT_DELETED", description: `Parcela ${deleted.installmentNumber} excluída logicamente`, branchId: existing.contract.branchId, before: existing, after: deleted, reason });
+  });
+  response.status(204).send();
+});
+
+financeRouter.post("/installments/:id/restore", requireAuth, requirePermission("finance.restore"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  const restored = await withTenant(auth.tenantId, async (tx) => {
+    const existing = await tx.paymentInstallment.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: { not: null } }, include: { contract: true } });
+    if (!existing) throw notFound();
+    assertBranch(auth, existing.contract.branchId);
+    const installment = await tx.paymentInstallment.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: null, deletedById: null, deletionReason: null } });
+    await recordAudit(tx, auth, request, { module: "FINANCEIRO", entityType: "PAYMENT_INSTALLMENT", entityId: installment.id, action: "INSTALLMENT_RESTORED", description: `Parcela ${installment.installmentNumber} restaurada`, branchId: existing.contract.branchId, before: existing, after: installment, reason });
+    return installment;
+  });
+  response.json({ id: restored.id });
 });

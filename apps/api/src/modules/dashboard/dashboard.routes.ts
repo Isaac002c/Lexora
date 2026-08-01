@@ -21,22 +21,22 @@ dashboardRouter.get("/", requireAuth, requirePermission("dashboard.read"), async
   // sem permissão (ex.: secretaria, advogado).
   const canFinance = auth.permissions.includes("finance.read");
   const data = await withTenant(auth.tenantId, async (tx) => {
-    const caseWhere: Prisma.LegalCaseWhereInput = { tenantId: auth.tenantId, ...(branchFilter ? { branchId: branchFilter } : {}), ...(filters.legalAreaId ? { legalAreaId: filters.legalAreaId } : {}), ...caseAssignmentFilter(auth) };
+    const caseWhere: Prisma.LegalCaseWhereInput = { tenantId: auth.tenantId, deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}), ...(filters.legalAreaId ? { legalAreaId: filters.legalAreaId } : {}), ...caseAssignmentFilter(auth) };
     const [clients, attendances, activeCases, upcomingDeadlines, pendingDocuments] = await Promise.all([
-      tx.client.count({ where: { tenantId: auth.tenantId, status: "ACTIVE", ...(branchFilter ? { primaryBranchId: branchFilter } : {}) } }),
-      tx.attendance.count({ where: { tenantId: auth.tenantId, occurredAt: { gte: monthStart }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.client.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "ACTIVE", ...(branchFilter ? { primaryBranchId: branchFilter } : {}) } }),
+      tx.attendance.count({ where: { tenantId: auth.tenantId, deletedAt: null, occurredAt: { gte: monthStart }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
       tx.legalCase.count({ where: { ...caseWhere, status: { notIn: ["FINALIZADO", "ARQUIVADO"] } } }),
-      tx.deadline.count({ where: { tenantId: auth.tenantId, status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { lte: nextSevenDays }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
-      tx.document.count({ where: { tenantId: auth.tenantId, status: { in: ["PENDING", "UNDER_REVIEW"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.deadline.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { lte: nextSevenDays }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.document.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["PENDING", "UNDER_REVIEW"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
     ]);
     if (!canFinance) {
       return { clients, attendances, activeCases, upcomingDeadlines, pendingDocuments, openContracts: null, overdueInstallments: null, delinquentInstallments: null, estimatedRevenue: null };
     }
     const [openContracts, overdueInstallments, delinquentInstallments, revenue] = await Promise.all([
-      tx.feeContract.count({ where: { tenantId: auth.tenantId, status: { in: ["DRAFT", "ACTIVE"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { lt: now }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { lt: fifteenDaysAgo }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
-      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { feeAmount: true } }),
+      tx.feeContract.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["DRAFT", "ACTIVE"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { lt: now }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { lt: fifteenDaysAgo }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
+      tx.feeContract.aggregate({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) }, _sum: { feeAmount: true } }),
     ]);
     return { clients, attendances, activeCases, upcomingDeadlines, pendingDocuments, openContracts, overdueInstallments, delinquentInstallments, estimatedRevenue: revenue._sum.feeAmount?.toFixed(2) ?? "0.00" };
   });

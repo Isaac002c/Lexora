@@ -104,7 +104,7 @@ checklistsRouter.post(
       if (!template) throw notFound();
       const branches = allowedBranches(auth);
       const attorneyFilter = checklistAttorneyFilter(auth);
-      const legalCase = await tx.legalCase.findFirst({ where: { tenantId: auth.tenantId, id: input.caseId, ...(branches ? { branchId: { in: branches } } : {}), ...("case" in attorneyFilter ? attorneyFilter.case : {}) } });
+      const legalCase = await tx.legalCase.findFirst({ where: { tenantId: auth.tenantId, id: input.caseId, deletedAt: null, ...(branches ? { branchId: { in: branches } } : {}), ...("case" in attorneyFilter ? attorneyFilter.case : {}) } });
       if (!legalCase) throw notFound();
       const item = await tx.caseChecklist.create({
         data: {

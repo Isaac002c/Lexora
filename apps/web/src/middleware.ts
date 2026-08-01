@@ -3,7 +3,7 @@ import { SESSION_COOKIE } from "@/lib/session";
 
 export function middleware(request: NextRequest) {
   const hasSession = request.cookies.has(SESSION_COOKIE);
-  const isAuthPage = request.nextUrl.pathname === "/login";
+  const isAuthPage = ["/login", "/recuperar-acesso"].includes(request.nextUrl.pathname);
   if (!hasSession && !isAuthPage) return NextResponse.redirect(new URL("/login", request.url));
   if (hasSession && isAuthPage) return NextResponse.redirect(new URL("/dashboard", request.url));
   return NextResponse.next();

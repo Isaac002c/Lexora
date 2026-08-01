@@ -1,12 +1,13 @@
-import { listQuerySchema } from "@chronostek/contracts";
+import { deletionReasonSchema, listQuerySchema } from "@chronostek/contracts";
 import { Prisma, withTenant } from "@chronostek/database";
 import { Router } from "express";
 import { createReadStream } from "node:fs";
 import multer from "multer";
 import { z } from "zod";
 import { allowedBranches, assertBranch, documentAttorneyFilter } from "../../lib/tenant.js";
-import { notFound } from "../../lib/app-error.js";
+import { forbidden, notFound } from "../../lib/app-error.js";
 import { assertCaseRelations, assertClientBranch } from "../../lib/entity-access.js";
+import { recordAudit } from "../../lib/audit.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 import {
   removeLocalFile,
@@ -43,9 +44,11 @@ documentsRouter.get(
   async (request, response) => {
     const auth = request.auth!;
     const query = documentQuerySchema.parse(request.query);
+    if (query.deleted !== "exclude" && !auth.permissions.includes("document.restore")) throw forbidden();
     const branches = allowedBranches(auth, query.branchId);
     const where: Prisma.DocumentWhereInput = {
       tenantId: auth.tenantId,
+      ...(query.deleted === "only" ? { deletedAt: { not: null } } : query.deleted === "exclude" ? { deletedAt: null } : {}),
       ...(branches ? { branchId: { in: branches } } : {}),
       ...documentAttorneyFilter(auth),
       ...(query.status ? { status: query.status as never } : {}),
@@ -171,7 +174,7 @@ documentsRouter.patch("/:id", requireAuth, requirePermission("document.upload"),
   const input = documentUpdateSchema.parse(request.body);
   const item = await withTenant(auth.tenantId, async (tx) => {
     const branches = allowedBranches(auth);
-    const existing = await tx.document.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), ...(branches ? { branchId: { in: branches } } : {}), ...documentAttorneyFilter(auth) } });
+    const existing = await tx.document.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...(branches ? { branchId: { in: branches } } : {}), ...documentAttorneyFilter(auth) } });
     if (!existing) throw notFound();
     const updated = await tx.document.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: input });
     await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "DOCUMENT", entityId: updated.id, action: "DOCUMENT_STATUS_UPDATED", description: `Documento ${updated.name} alterado para ${updated.status}` } });
@@ -188,17 +191,20 @@ documentsRouter.get(
   async (request, response) => {
     const auth = request.auth!;
     const branches = allowedBranches(auth);
-    const document = await withTenant(auth.tenantId, (tx) =>
-      tx.document.findFirst({
+    const document = await withTenant(auth.tenantId, async (tx) => {
+      const item = await tx.document.findFirst({
         where: {
           tenantId: auth.tenantId,
           id: String(request.params.id),
+          deletedAt: null,
           ...(branches ? { branchId: { in: branches } } : {}),
           ...documentAttorneyFilter(auth),
         },
         include: { storedFile: true },
-      }),
-    );
+      });
+      if (item?.storedFile && !item.storedFile.deletedAt) await recordAudit(tx, auth, request, { module: "DOCUMENTOS", entityType: "DOCUMENT", entityId: item.id, action: "DOCUMENT_DOWNLOADED", description: `Documento ${item.name} baixado`, branchId: item.branchId, origin: "API" });
+      return item;
+    });
     if (!document?.storedFile || document.storedFile.deletedAt)
       throw notFound();
     response.setHeader("content-type", document.storedFile.mimeType);
@@ -215,3 +221,30 @@ documentsRouter.get(
     );
   },
 );
+
+documentsRouter.delete("/:id", requireAuth, requirePermission("document.delete"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const existing = await tx.document.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...(branches ? { branchId: { in: branches } } : {}), ...documentAttorneyFilter(auth) } });
+    if (!existing) throw notFound();
+    const deleted = await tx.document.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: new Date(), deletedById: auth.userId, deletionReason: reason } });
+    await recordAudit(tx, auth, request, { module: "DOCUMENTOS", entityType: "DOCUMENT", entityId: deleted.id, action: "DOCUMENT_DELETED", description: `Documento ${deleted.name} excluído logicamente`, branchId: deleted.branchId, before: existing, after: deleted, reason });
+  });
+  response.status(204).send();
+});
+
+documentsRouter.post("/:id/restore", requireAuth, requirePermission("document.restore"), async (request, response) => {
+  const auth = request.auth!;
+  const { reason } = deletionReasonSchema.parse(request.body);
+  const restored = await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const existing = await tx.document.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: { not: null }, ...(branches ? { branchId: { in: branches } } : {}), ...documentAttorneyFilter(auth) } });
+    if (!existing) throw notFound();
+    const document = await tx.document.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { deletedAt: null, deletedById: null, deletionReason: null } });
+    await recordAudit(tx, auth, request, { module: "DOCUMENTOS", entityType: "DOCUMENT", entityId: document.id, action: "DOCUMENT_RESTORED", description: `Documento ${document.name} restaurado`, branchId: document.branchId, before: existing, after: document, reason });
+    return document;
+  });
+  response.json({ id: restored.id });
+});

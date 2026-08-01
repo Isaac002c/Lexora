@@ -42,16 +42,31 @@ async function candidateTenantIds(input: LoginInput): Promise<string[]> {
   return tenants.map((tenant) => tenant.id);
 }
 
-export async function login(input: LoginInput, metadata: { ip?: string; userAgent?: string }) {
+export async function login(input: LoginInput, metadata: { ip?: string; userAgent?: string; correlationId?: string }) {
   // A senha é quem desambigua: só há sucesso onde e-mail E senha conferem. Falhas
   // retornam sempre a mesma mensagem genérica (sem enumeração de usuário/escritório).
   for (const tenantId of await candidateTenantIds(input)) {
     const result = await withTenant(tenantId, async (tx) => {
       const user = await tx.user.findUnique({
         where: { tenantId_emailNormalized: { tenantId, emailNormalized: input.email } },
-        select: { id: true, passwordHash: true, status: true, forcePasswordChange: true },
+        select: { id: true, name: true, passwordHash: true, status: true, forcePasswordChange: true },
       });
-      if (!user || user.status !== "ACTIVE" || !(await argon2.verify(user.passwordHash, input.password))) return null;
+      if (!user) return null;
+      if (user.status !== "ACTIVE" || !(await argon2.verify(user.passwordHash, input.password))) {
+        await tx.auditLog.create({ data: {
+          tenantId,
+          entityType: "USER",
+          entityId: user.id,
+          action: "AUTH_LOGIN_DENIED",
+          description: "Tentativa de autenticação negada",
+          module: "AUTH",
+          origin: "API",
+          correlationId: metadata.correlationId,
+          ipAddress: metadata.ip,
+          userAgent: metadata.userAgent?.slice(0, 500),
+        } });
+        return null;
+      }
 
       const now = new Date();
       const rawToken = `${tenantId}.${randomBytes(48).toString("base64url")}`;
@@ -68,7 +83,7 @@ export async function login(input: LoginInput, metadata: { ip?: string; userAgen
       });
       await tx.user.update({ where: { tenantId_id: { tenantId, id: user.id } }, data: { lastLoginAt: now } });
       await tx.auditLog.create({
-        data: { tenantId, actorUserId: user.id, entityType: "SESSION", entityId: session.id, action: "AUTH_LOGIN", description: "Usuário autenticado", ipAddress: metadata.ip, userAgent: metadata.userAgent?.slice(0, 500) },
+        data: { tenantId, actorUserId: user.id, actorName: user.name, entityType: "SESSION", entityId: session.id, action: "AUTH_LOGIN", description: "Usuário autenticado", module: "AUTH", origin: "API", correlationId: metadata.correlationId, ipAddress: metadata.ip, userAgent: metadata.userAgent?.slice(0, 500) },
       });
 
       return { token: rawToken, expiresAt: session.expiresAt, forcePasswordChange: user.forcePasswordChange };
@@ -119,7 +134,7 @@ export async function resolveSession(rawToken: string) {
       sessionId: session.id,
       tenantId,
       tenantName: session.tenant.tradeName,
-      primaryColor: session.tenant.settings?.primaryColor ?? "#06B6D4",
+      primaryColor: session.tenant.settings?.primaryColor ?? "#A56FFF",
       userId: session.user.id,
       userName: session.user.name,
       userEmail: session.user.email,
@@ -133,9 +148,26 @@ export async function resolveSession(rawToken: string) {
   });
 }
 
-export async function logout(rawToken: string) {
+export async function logout(rawToken: string, auth: NonNullable<Express.Request["auth"]>, metadata: { ip?: string; userAgent?: string; correlationId?: string }) {
   const tenantId = parseTenantId(rawToken);
-  return withTenant(tenantId, (tx) => tx.session.updateMany({ where: { tokenHash: tokenHash(rawToken), revokedAt: null }, data: { revokedAt: new Date() } }));
+  return withTenant(tenantId, async (tx) => {
+    await tx.auditLog.create({ data: {
+      tenantId,
+      actorUserId: auth.userId,
+      actorName: auth.userName,
+      actorRoles: auth.roles,
+      entityType: "SESSION",
+      entityId: auth.sessionId,
+      action: "AUTH_LOGOUT",
+      description: "Usuário encerrou a sessão",
+      module: "AUTH",
+      origin: "API",
+      correlationId: metadata.correlationId,
+      ipAddress: metadata.ip,
+      userAgent: metadata.userAgent?.slice(0, 500),
+    } });
+    return tx.session.updateMany({ where: { tokenHash: tokenHash(rawToken), revokedAt: null }, data: { revokedAt: new Date() } });
+  });
 }
 
 export async function changePassword(rawToken: string, auth: NonNullable<Express.Request["auth"]>, input: ChangePasswordInput) {

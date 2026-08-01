@@ -10,6 +10,8 @@ import { formatDay } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
+import { SoftDeleteAction } from "@/components/soft-delete-action";
+import { getCurrentUser } from "@/lib/server-api";
 
 interface AttendanceList {
   items: Array<{
@@ -20,6 +22,7 @@ interface AttendanceList {
     occurredAt: string;
     origin?: string;
     status: string;
+    deletedAt?: string;
     branch: { name: string };
     legalArea?: { name: string };
     attorney?: { name: string };
@@ -31,15 +34,16 @@ interface AttendanceList {
 export default async function AttendancesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; page?: string; status?: string }>;
+  searchParams: Promise<{ search?: string; page?: string; status?: string; deleted?: "exclude" | "only" }>;
 }) {
   const query = await searchParams;
   const { search } = query;
-  const [data, lookups] = await Promise.all([
+  const [data, lookups, user] = await Promise.all([
     fetchData<AttendanceList>(
-      `/v1/attendances?${new URLSearchParams({ search: search ?? "", page: query.page ?? "1", status: query.status ?? "" })}`,
+      `/v1/attendances?${new URLSearchParams({ search: search ?? "", page: query.page ?? "1", status: query.status ?? "", deleted: query.deleted ?? "exclude" })}`,
     ),
     fetchData<Lookups>("/v1/lookups"),
+    getCurrentUser(),
   ]);
   return (
     <>
@@ -105,6 +109,7 @@ export default async function AttendancesPage({
           { label: "Direcionados", href: "/atendimentos?status=DIRECIONADO" },
           { label: "Convertidos", href: "/atendimentos?status=CONVERTIDO_EM_PROCESSO" },
           { label: "Encerrados", href: "/atendimentos?status=ENCERRADO" },
+          ...(user?.permissions.includes("attendance.restore") ? [{ label: "Excluídos", href: "/atendimentos?deleted=only" }] : []),
         ]}
       />
       <SearchForm defaultValue={search} placeholder="Nome ou e-mail" />
@@ -117,7 +122,8 @@ export default async function AttendancesPage({
           "Advogado",
           "Origem",
           "Status",
-          "Ação",
+          "Conversão",
+          "Ações",
         ]}
         emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum atendimento encontrado com os filtros aplicados." : "Nenhum atendimento registrado ainda. Use “Novo atendimento” para começar."}
         rows={data.items.map((item) => [
@@ -128,7 +134,7 @@ export default async function AttendancesPage({
           item.attorney?.name ?? "—",
           item.origin ?? "—",
           <StatusBadge key="status" value={item.status} />,
-          item.status === "CONVERTIDO_EM_PROCESSO" ? (
+          item.deletedAt ? "—" : item.status === "CONVERTIDO_EM_PROCESSO" ? (
             "Convertido"
           ) : (
             <AttendanceConvertPanel
@@ -139,6 +145,9 @@ export default async function AttendancesPage({
               lookups={lookups}
             />
           ),
+          item.deletedAt
+            ? user?.permissions.includes("attendance.restore") && <SoftDeleteAction key="restore" restore endpoint={`/api/v1/attendances/${item.id}/restore`} />
+            : user?.permissions.includes("attendance.delete") && <SoftDeleteAction key="delete" endpoint={`/api/v1/attendances/${item.id}`} />,
         ])}
       />
       <Pagination

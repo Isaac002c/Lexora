@@ -8,6 +8,8 @@ import { formatDate } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Pagination } from "@/components/pagination";
 import { ModuleNav } from "@/features/shared/components/module-nav";
+import { SoftDeleteAction } from "@/components/soft-delete-action";
+import { getCurrentUser } from "@/lib/server-api";
 
 interface CaseList {
   items: Array<{
@@ -15,6 +17,7 @@ interface CaseList {
     caseType: string;
     processNumber?: string;
     status: string;
+    deletedAt?: string;
     entryDate: string;
     lastProgress?: string;
     branch: { name: string };
@@ -35,15 +38,17 @@ export default async function CasesPage({
     branchId?: string;
     legalAreaId?: string;
     status?: string;
+    deleted?: "exclude" | "only";
   }>;
 }) {
   const query = await searchParams;
   const { search } = query;
-  const [data, lookups] = await Promise.all([
+  const [data, lookups, user] = await Promise.all([
     fetchData<CaseList>(
       `/v1/cases?${new URLSearchParams(Object.fromEntries(Object.entries(query).filter((x): x is [string, string] => Boolean(x[1]))))}`,
     ),
     fetchData<Lookups>("/v1/lookups"),
+    getCurrentUser(),
   ]);
   return (
     <>
@@ -122,7 +127,7 @@ export default async function CasesPage({
           />
         }
       />
-      <ModuleNav items={[{ label: "Todos", href: "/processos" }, { label: "Em análise", href: "/processos?status=EM_ANALISE" }, { label: "Aguardando documentos", href: "/processos?status=AGUARDANDO_DOCUMENTOS" }, { label: "Prontos para distribuição", href: "/processos?status=PRONTO_PARA_DISTRIBUICAO" }, { label: "Distribuídos", href: "/processos?status=DISTRIBUIDO" }, { label: "Em andamento", href: "/processos?status=EM_ANDAMENTO" }, { label: "Finalizados", href: "/processos?status=FINALIZADO" }, { label: "Arquivados", href: "/processos?status=ARQUIVADO" }]} />
+      <ModuleNav items={[{ label: "Todos", href: "/processos" }, { label: "Em análise", href: "/processos?status=EM_ANALISE" }, { label: "Aguardando documentos", href: "/processos?status=AGUARDANDO_DOCUMENTOS" }, { label: "Prontos para distribuição", href: "/processos?status=PRONTO_PARA_DISTRIBUICAO" }, { label: "Distribuídos", href: "/processos?status=DISTRIBUIDO" }, { label: "Em andamento", href: "/processos?status=EM_ANDAMENTO" }, { label: "Finalizados", href: "/processos?status=FINALIZADO" }, { label: "Arquivados", href: "/processos?status=ARQUIVADO" }, ...(user?.permissions.includes("case.restore") ? [{ label: "Excluídos", href: "/processos?deleted=only" }] : [])]} />
       <SearchForm
         defaultValue={search}
         placeholder="Cliente, tipo ou número do processo"
@@ -161,6 +166,7 @@ export default async function CasesPage({
           "Entrada",
           "Último andamento",
           "Status",
+          "Ações",
         ]}
         emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum processo encontrado com os filtros aplicados." : "Nenhum processo cadastrado ainda. Use “Novo processo” para começar."}
         rows={data.items.map((item) => [
@@ -187,6 +193,9 @@ export default async function CasesPage({
             {item.lastProgress ?? "Nenhum andamento"}
           </span>,
           <StatusBadge key="status" value={item.status} />,
+          item.deletedAt
+            ? user?.permissions.includes("case.restore") && <SoftDeleteAction key="restore" restore endpoint={`/api/v1/cases/${item.id}/restore`} />
+            : user?.permissions.includes("case.delete") && <SoftDeleteAction key="delete" endpoint={`/api/v1/cases/${item.id}`} />,
         ])}
       />
       <Pagination

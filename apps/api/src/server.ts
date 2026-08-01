@@ -21,7 +21,7 @@ const env = parseServerEnv(process.env);
 const app = createApp(env.WEB_URL);
 
 const server = app.listen(env.API_PORT, () => {
-  console.info(`Chronostek API listening on port ${env.API_PORT}`);
+  console.info(`Lexora API listening on port ${env.API_PORT}`);
 });
 
 async function shutdown(signal: string) {

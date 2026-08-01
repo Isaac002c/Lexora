@@ -2,12 +2,13 @@
 
 import { LoaderCircle, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { DateField } from "./date-field";
+import { useWorkspaceTabs } from "./workspace-tabs";
 
 export interface FormField {
   name: string;
@@ -50,6 +51,9 @@ export function CreatePanel({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const [dirty, setLocalDirty] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const { setDirty, registerSaveHandler } = useWorkspaceTabs();
   // Valores de campos que controlam selects dependentes (ex.: filial → clientes).
   const [filters, setFilters] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
@@ -59,11 +63,10 @@ export function CreatePanel({
   });
   const router = useRouter();
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const persist = useCallback(async (form: HTMLFormElement) => {
     setSaving(true);
     setError(undefined);
-    const data = new FormData(event.currentTarget);
+    const data = new FormData(form);
     const body: Record<string, unknown> = {};
     for (const field of fields) {
       if (field.type === "checkbox")
@@ -88,17 +91,43 @@ export function CreatePanel({
       };
       setError(problem.detail ?? problem.title ?? "Não foi possível salvar.");
       setSaving(false);
-      return;
+      return false;
     }
     setSaving(false);
     setOpen(false);
+    setLocalDirty(false);
+    setDirty(false);
     router.refresh();
+    return true;
+  }, [endpoint, fields, method, router, setDirty]);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await persist(event.currentTarget);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    return registerSaveHandler(async () => formRef.current ? persist(formRef.current) : false);
+  }, [open, persist, registerSaveHandler]);
+
+  function markDirty() {
+    if (dirty) return;
+    setLocalDirty(true);
+    setDirty(true);
+  }
+
+  function closePanel() {
+    if (dirty && !window.confirm("Descartar as alterações deste formulário?")) return;
+    setOpen(false);
+    setLocalDirty(false);
+    setDirty(false);
   }
 
   return (
     <>
       {
-        <Button onClick={() => setOpen(true)} className="gap-2">
+        <Button onClick={() => { setOpen(true); setLocalDirty(false); setDirty(false); }} className="gap-2">
           <Plus className="h-4 w-4" />
           {buttonLabel}
         </Button>
@@ -115,12 +144,13 @@ export function CreatePanel({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setOpen(false)}
+                aria-label="Fechar formulário"
+                onClick={closePanel}
               >
                 <X />
               </Button>
             </div>
-            <form onSubmit={submit} className="grid gap-4 p-5 sm:grid-cols-2">
+            <form ref={formRef} data-lexora-dirty-form onSubmit={submit} onChangeCapture={markDirty} className="grid gap-4 p-5 sm:grid-cols-2">
               {fields.map((field) => (
                 <div
                   key={field.name}
@@ -199,7 +229,7 @@ export function CreatePanel({
                 <Button
                   type="button"
                   variant="ghost"
-                  onClick={() => setOpen(false)}
+                  onClick={closePanel}
                 >
                   Cancelar
                 </Button>

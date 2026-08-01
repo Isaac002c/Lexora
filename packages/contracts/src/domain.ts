@@ -42,7 +42,43 @@ export const listQuerySchema = z.object({
   status: z.string().trim().max(80).optional(),
   from: optionalDate,
   to: optionalDate,
+  deleted: z.enum(["exclude", "only", "include"]).default("exclude"),
 });
+
+export const deletionReasonSchema = z.object({ reason: z.string().trim().min(3).max(500) });
+
+export const hearingCreateSchema = z.object({
+  branchId: z.string().uuid(), clientId: z.string().uuid(), caseId: z.string().uuid(),
+  legalAreaId: optionalUuid, attorneyId: optionalUuid, assistantId: optionalUuid,
+  type: z.string().trim().min(2).max(120), startsAt: inputDate, hasTime: z.boolean().default(true),
+  location: optionalText, meetingLink: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  participants: z.array(z.string().trim().min(1).max(200)).max(100).optional(), notes: optionalText,
+  status: z.enum(["AGENDADA", "REAGENDADA", "CANCELADA", "CONCLUIDA"]).default("AGENDADA"), result: optionalText,
+});
+export const hearingUpdateSchema = hearingCreateSchema.partial();
+
+export const taskCreateSchema = z.object({
+  branchId: optionalUuid, clientId: optionalUuid, caseId: optionalUuid, attendanceId: optionalUuid,
+  deadlineId: optionalUuid, hearingId: optionalUuid, legalAreaId: optionalUuid, assigneeId: z.string().uuid(),
+  title: z.string().trim().min(3).max(200), description: optionalText,
+  priority: z.enum(["BAIXA", "NORMAL", "ALTA", "URGENTE"]).default("NORMAL"), dueAt: optionalInputDate,
+  status: z.enum(["PENDENTE", "EM_ANDAMENTO", "CONCLUIDA", "CANCELADA"]).default("PENDENTE"),
+  checklist: z.array(z.object({ title: z.string().trim().min(1).max(200), done: z.boolean().default(false) })).max(100).optional(),
+});
+export const taskUpdateSchema = taskCreateSchema.partial();
+
+const calendarEventBaseSchema = z.object({
+  branchId: optionalUuid, ownerUserId: optionalUuid, legalAreaId: optionalUuid, clientId: optionalUuid, caseId: optionalUuid,
+  type: z.enum(["AUDIENCIA", "PRAZO", "ATENDIMENTO", "REUNIAO", "TAREFA", "COMPROMISSO", "COBRANCA", "OUTRO"]),
+  title: z.string().trim().min(3).max(200), description: optionalText, startsAt: inputDate, endsAt: optionalInputDate,
+  allDay: z.boolean().default(false), recurrence: z.record(z.unknown()).optional(), location: optionalText,
+  meetingLink: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  participants: z.array(z.string().trim().min(1).max(200)).max(100).optional(),
+  reminders: z.array(z.coerce.number().int().min(0).max(525600)).max(20).optional(),
+  status: z.enum(["AGENDADO", "CANCELADO", "CONCLUIDO"]).default("AGENDADO"),
+});
+export const calendarEventCreateSchema = calendarEventBaseSchema.refine((value) => !value.endsAt || value.endsAt >= value.startsAt, { message: "O término deve ser posterior ao início.", path: ["endsAt"] });
+export const calendarEventUpdateSchema = calendarEventBaseSchema.partial().refine((value) => !value.startsAt || !value.endsAt || value.endsAt >= value.startsAt, { message: "O término deve ser posterior ao início.", path: ["endsAt"] });
 
 export const clientCreateSchema = z.object({
   primaryBranchId: z.string().uuid(),

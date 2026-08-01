@@ -9,7 +9,7 @@ export const authRouter = Router();
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false });
 
 authRouter.post("/login", loginLimiter, async (request, response) => {
-  const result = await login(loginSchema.parse(request.body), { ip: request.ip, userAgent: request.header("user-agent") });
+  const result = await login(loginSchema.parse(request.body), { ip: request.ip, userAgent: request.header("user-agent"), correlationId: String(request.id) });
   response.json(result);
 });
 
@@ -19,7 +19,7 @@ authRouter.get("/me", requireAuth, (request, response) => {
 });
 
 authRouter.post("/logout", requireAuth, async (request, response) => {
-  await logout(request.sessionToken!);
+  await logout(request.sessionToken!, request.auth!, { ip: request.ip, userAgent: request.header("user-agent"), correlationId: String(request.id) });
   response.status(204).end();
 });
 

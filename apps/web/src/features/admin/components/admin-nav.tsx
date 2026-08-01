@@ -26,8 +26,8 @@ const items: ModuleNavItem[] = [
     permission: "user.manage",
   },
   {
-    label: "Auditoria",
-    href: "/administracao/auditoria",
+    label: "Histórico",
+    href: "/historico",
     permission: "audit.read",
   },
   {

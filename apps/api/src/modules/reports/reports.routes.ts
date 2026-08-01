@@ -4,6 +4,7 @@ import { withTenant } from "@chronostek/database";
 import { Router } from "express";
 import { allowedBranches } from "../../lib/tenant.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
+import { recordAudit } from "../../lib/audit.js";
 
 export const reportsRouter = Router();
 
@@ -20,6 +21,7 @@ async function loadReport(auth: AuthContext, rawQuery: unknown) {
   const assignmentFilter = query.responsibleId ? { assignments: { some: { userId: query.responsibleId } } } : {};
   const caseWhere = {
     tenantId: auth.tenantId,
+    deletedAt: null,
     createdAt: { gte: from, lte: to },
     ...(branchFilter ? { branchId: branchFilter } : {}),
     ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}),
@@ -29,21 +31,21 @@ async function loadReport(auth: AuthContext, rawQuery: unknown) {
 
   return withTenant(auth.tenantId, async (tx) => {
     const [attendedClients, closedContracts, revenue, delinquent, activeCases, finalizedCases, byArea, byBranch, byAttorney, caseStatusBreakdown, attendanceStatusBreakdown, deadlineStatusBreakdown, financeStatusBreakdown, upcomingDeadlines, pendingDocuments] = await Promise.all([
-      tx.attendance.count({ where: { tenantId: auth.tenantId, occurredAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { attorneyId: query.responsibleId } : {}) } }),
-      tx.feeContract.count({ where: { tenantId: auth.tenantId, createdAt: { gte: from, lte: to }, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
-      tx.paymentInstallment.aggregate({ where: { tenantId: auth.tenantId, status: "PAID", paidAt: { gte: from, lte: to }, contract: { ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.responsibleId ? { case: { assignments: { some: { userId: query.responsibleId } } } } : {}) } }, _sum: { amount: true } }),
-      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, status: "PENDING", dueDate: { lt: new Date(now.getTime() - 15 * 86_400_000) }, contract: branchFilter ? { branchId: branchFilter } : undefined } }),
+      tx.attendance.count({ where: { tenantId: auth.tenantId, deletedAt: null, occurredAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { attorneyId: query.responsibleId } : {}) } }),
+      tx.feeContract.count({ where: { tenantId: auth.tenantId, deletedAt: null, createdAt: { gte: from, lte: to }, status: { in: ["ACTIVE", "COMPLETED"] }, ...(branchFilter ? { branchId: branchFilter } : {}) } }),
+      tx.paymentInstallment.aggregate({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PAID", paidAt: { gte: from, lte: to }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.responsibleId ? { case: { assignments: { some: { userId: query.responsibleId } } } } : {}) } }, _sum: { amount: true } }),
+      tx.paymentInstallment.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: "PENDING", dueDate: { lt: new Date(now.getTime() - 15 * 86_400_000) }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } } }),
       tx.legalCase.count({ where: { ...caseWhere, ...(selectedCaseStatus ? {} : { status: { notIn: ["FINALIZADO", "ARQUIVADO"] } }) } }),
       tx.legalCase.count({ where: { ...caseWhere, status: "FINALIZADO" } }),
       tx.legalCase.groupBy({ by: ["legalAreaId"], where: caseWhere, _count: true }),
       tx.legalCase.groupBy({ by: ["branchId"], where: caseWhere, _count: true }),
       tx.caseAssignment.groupBy({ by: ["userId"], where: { tenantId: auth.tenantId, type: "ATTORNEY", case: caseWhere }, _count: true }),
       tx.legalCase.groupBy({ by: ["status"], where: caseWhere, _count: true }),
-      tx.attendance.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, occurredAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { attorneyId: query.responsibleId } : {}) }, _count: true }),
-      tx.deadline.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, dueAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { responsibleUserId: query.responsibleId } : {}) }, _count: true }),
-      tx.paymentInstallment.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, dueDate: { gte: from, lte: to }, contract: branchFilter ? { branchId: branchFilter } : undefined }, _count: true, _sum: { amount: true } }),
-      tx.deadline.count({ where: { tenantId: auth.tenantId, status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { gte: now, lte: new Date(now.getTime() + 7 * 86_400_000) }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { responsibleUserId: query.responsibleId } : {}) } }),
-      tx.document.count({ where: { tenantId: auth.tenantId, status: { in: ["PENDING", "UNDER_REVIEW"] }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.responsibleId ? { case: { assignments: { some: { userId: query.responsibleId } } } } : {}) } }),
+      tx.attendance.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, deletedAt: null, occurredAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { attorneyId: query.responsibleId } : {}) }, _count: true }),
+      tx.deadline.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, deletedAt: null, dueAt: { gte: from, lte: to }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { responsibleUserId: query.responsibleId } : {}) }, _count: true }),
+      tx.paymentInstallment.groupBy({ by: ["status"], where: { tenantId: auth.tenantId, deletedAt: null, dueDate: { gte: from, lte: to }, contract: { deletedAt: null, ...(branchFilter ? { branchId: branchFilter } : {}) } }, _count: true, _sum: { amount: true } }),
+      tx.deadline.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["PENDING", "IN_PROGRESS"] }, dueAt: { gte: now, lte: new Date(now.getTime() + 7 * 86_400_000) }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.responsibleId ? { responsibleUserId: query.responsibleId } : {}) } }),
+      tx.document.count({ where: { tenantId: auth.tenantId, deletedAt: null, status: { in: ["PENDING", "UNDER_REVIEW"] }, ...(branchFilter ? { branchId: branchFilter } : {}), ...(query.responsibleId ? { case: { assignments: { some: { userId: query.responsibleId } } } } : {}) } }),
     ]);
     const [areas, branchRecords, attorneys] = await Promise.all([
       tx.legalArea.findMany({ where: { tenantId: auth.tenantId, id: { in: byArea.map((item) => item.legalAreaId) } }, select: { id: true, name: true } }),
@@ -77,7 +79,8 @@ reportsRouter.get("/summary", requireAuth, requirePermission("report.read"), asy
 });
 
 reportsRouter.get("/export.csv", requireAuth, requirePermission("report.read"), async (request, response) => {
-  const data = await loadReport(request.auth!, request.query);
+  const auth = request.auth!;
+  const data = await loadReport(auth, request.query);
   const rows: Array<Array<string | number>> = [
     ["Indicador", "Valor"],
     ["Clientes atendidos", data.attendedClients],
@@ -99,7 +102,8 @@ reportsRouter.get("/export.csv", requireAuth, requirePermission("report.read"), 
     ...data.casesByAttorney.map((item) => [item.name, item.count]),
   ];
   const csv = rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(";")).join("\r\n");
+  await withTenant(auth.tenantId, (tx) => recordAudit(tx, auth, request, { module: "RELATÓRIOS", entityType: "REPORT", entityId: auth.tenantId, action: "REPORT_EXPORTED", description: "Relatório consolidado exportado em CSV", origin: "API" }));
   response.setHeader("content-type", "text/csv; charset=utf-8");
-  response.setHeader("content-disposition", `attachment; filename="relatorio-chronostek-${new Date().toISOString().slice(0, 10)}.csv"`);
+  response.setHeader("content-disposition", `attachment; filename="relatorio-lexora-${new Date().toISOString().slice(0, 10)}.csv"`);
   response.send(`\uFEFF${csv}`);
 });
