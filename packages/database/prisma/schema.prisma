@@ -78,6 +78,7 @@ enum DeadlinePriority {
 enum DeadlineStatus {
   PENDING
   IN_PROGRESS
+  PENDING_APPROVAL
   COMPLETED
   CANCELLED
 }
@@ -171,6 +172,8 @@ model Tenant {
   checklistTemplateItems ChecklistTemplateItem[]
   caseChecklists         CaseChecklist[]
   checklistItems         ChecklistItem[]
+  clientChecklists       ClientChecklist[]
+  clientChecklistItems   ClientChecklistItem[]
   feeContracts           FeeContract[]
   installments           PaymentInstallment[]
   sessions               Session[]
@@ -242,19 +245,21 @@ model User {
   updatedAt           DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt          DateTime?  @map("archived_at") @db.Timestamptz(3)
 
-  tenant                   Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                   Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   roles                    UserRole[]
   branchAccesses           UserBranchAccess[]
   sessions                 Session[]
-  clientResponsibilities   Client[]             @relation("ClientResponsible")
-  attendanceAttorneys      Attendance[]         @relation("AttendanceAttorney")
+  clientResponsibilities   Client[]              @relation("ClientResponsible")
+  attendanceAttorneys      Attendance[]          @relation("AttendanceAttorney")
   caseAssignments          CaseAssignment[]
-  deadlineResponsibilities Deadline[]           @relation("DeadlineResponsible")
-  uploadedFiles            StoredFile[]         @relation("FileUploader")
-  uploadedDocuments        Document[]           @relation("DocumentUploader")
-  checklistUpdates         ChecklistItem[]      @relation("ChecklistUpdater")
-  recordedPayments         PaymentInstallment[] @relation("PaymentRecorder")
-  auditLogs                AuditLog[]           @relation("AuditActor")
+  deadlineResponsibilities Deadline[]            @relation("DeadlineResponsible")
+  uploadedFiles            StoredFile[]          @relation("FileUploader")
+  uploadedDocuments        Document[]            @relation("DocumentUploader")
+  checklistUpdates         ChecklistItem[]       @relation("ChecklistUpdater")
+  clientChecklistUpdates   ClientChecklistItem[] @relation("ClientChecklistUpdater")
+  reviewedDeadlines        Deadline[]            @relation("DeadlineReviewer")
+  recordedPayments         PaymentInstallment[]  @relation("PaymentRecorder")
+  auditLogs                AuditLog[]            @relation("AuditActor")
   notifications            Notification[]
 
   @@unique([tenantId, id])
@@ -387,14 +392,15 @@ model Client {
   deletedById       String?      @map("deleted_by_id") @db.Uuid
   deletionReason    String?      @map("deletion_reason")
 
-  tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  primaryBranch   Branch        @relation(fields: [tenantId, primaryBranchId], references: [tenantId, id])
-  responsibleUser User?         @relation("ClientResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id])
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  primaryBranch   Branch            @relation(fields: [tenantId, primaryBranchId], references: [tenantId, id])
+  responsibleUser User?             @relation("ClientResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id])
   attendances     Attendance[]
   caseParties     CaseParty[]
   deadlines       Deadline[]
   documents       Document[]
   feeContracts    FeeContract[]
+  checklists      ClientChecklist[]
 
   @@unique([tenantId, id])
   @@unique([tenantId, taxIdHash])
@@ -446,6 +452,7 @@ model LegalCase {
   tenantId             String     @map("tenant_id") @db.Uuid
   branchId             String     @map("branch_id") @db.Uuid
   legalAreaId          String     @map("legal_area_id") @db.Uuid
+  caseName             String?    @map("case_name")
   caseType             String     @map("case_type")
   processNumber        String?    @map("process_number")
   processNumberSearch  String?    @map("process_number_search")
@@ -521,25 +528,29 @@ model CaseAssignment {
 }
 
 model Deadline {
-  id                String           @id @default(uuid()) @db.Uuid
-  tenantId          String           @map("tenant_id") @db.Uuid
-  branchId          String           @map("branch_id") @db.Uuid
-  caseId            String           @map("case_id") @db.Uuid
-  clientId          String           @map("client_id") @db.Uuid
-  legalAreaId       String           @map("legal_area_id") @db.Uuid
-  responsibleUserId String           @map("responsible_user_id") @db.Uuid
-  title             String
-  type              DeadlineType
-  dueAt             DateTime         @map("due_at") @db.Timestamptz(3)
-  priority          DeadlinePriority @default(NORMAL)
-  status            DeadlineStatus   @default(PENDING)
-  notes             String?
-  completedAt       DateTime?        @map("completed_at") @db.Timestamptz(3)
-  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
-  deletedAt         DateTime?        @map("deleted_at") @db.Timestamptz(3)
-  deletedById       String?          @map("deleted_by_id") @db.Uuid
-  deletionReason    String?          @map("deletion_reason")
+  id                     String           @id @default(uuid()) @db.Uuid
+  tenantId               String           @map("tenant_id") @db.Uuid
+  branchId               String           @map("branch_id") @db.Uuid
+  caseId                 String           @map("case_id") @db.Uuid
+  clientId               String           @map("client_id") @db.Uuid
+  legalAreaId            String           @map("legal_area_id") @db.Uuid
+  responsibleUserId      String           @map("responsible_user_id") @db.Uuid
+  title                  String
+  type                   DeadlineType
+  dueAt                  DateTime         @map("due_at") @db.Timestamptz(3)
+  priority               DeadlinePriority @default(NORMAL)
+  status                 DeadlineStatus   @default(PENDING)
+  notes                  String?
+  completedAt            DateTime?        @map("completed_at") @db.Timestamptz(3)
+  submittedForApprovalAt DateTime?        @map("submitted_for_approval_at") @db.Timestamptz(3)
+  reviewedAt             DateTime?        @map("reviewed_at") @db.Timestamptz(3)
+  reviewedById           String?          @map("reviewed_by_id") @db.Uuid
+  reviewNotes            String?          @map("review_notes")
+  createdAt              DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt              DateTime?        @map("deleted_at") @db.Timestamptz(3)
+  deletedById            String?          @map("deleted_by_id") @db.Uuid
+  deletionReason         String?          @map("deletion_reason")
 
   tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   branch          Branch    @relation(fields: [tenantId, branchId], references: [tenantId, id])
@@ -547,6 +558,7 @@ model Deadline {
   client          Client    @relation(fields: [tenantId, clientId], references: [tenantId, id])
   legalArea       LegalArea @relation(fields: [tenantId, legalAreaId], references: [tenantId, id])
   responsibleUser User      @relation("DeadlineResponsible", fields: [tenantId, responsibleUserId], references: [tenantId, id])
+  reviewedBy      User?     @relation("DeadlineReviewer", fields: [tenantId, reviewedById], references: [tenantId, id])
 
   @@unique([tenantId, id])
   @@index([tenantId, branchId, status, dueAt])
@@ -689,6 +701,46 @@ model ChecklistItem {
   @@unique([tenantId, id])
   @@unique([tenantId, checklistId, position])
   @@map("checklist_items")
+}
+
+model ClientChecklist {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  clientId  String   @map("client_id") @db.Uuid
+  name      String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client Client                @relation(fields: [tenantId, clientId], references: [tenantId, id], onDelete: Cascade)
+  items  ClientChecklistItem[]
+
+  @@unique([tenantId, id])
+  @@index([tenantId, clientId])
+  @@map("client_checklists")
+}
+
+model ClientChecklistItem {
+  id          String              @id @default(uuid()) @db.Uuid
+  tenantId    String              @map("tenant_id") @db.Uuid
+  checklistId String              @map("checklist_id") @db.Uuid
+  updatedById String?             @map("updated_by_id") @db.Uuid
+  title       String
+  description String?
+  isRequired  Boolean             @default(true) @map("is_required")
+  position    Int
+  status      ChecklistItemStatus @default(PENDENTE)
+  notes       String?
+  receivedAt  DateTime?           @map("received_at") @db.Timestamptz(3)
+  updatedAt   DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checklist ClientChecklist @relation(fields: [tenantId, checklistId], references: [tenantId, id], onDelete: Cascade)
+  updatedBy User?           @relation("ClientChecklistUpdater", fields: [tenantId, updatedById], references: [tenantId, id])
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, checklistId, position])
+  @@map("client_checklist_items")
 }
 
 model FeeContract {

@@ -1,4 +1,4 @@
-import { attendanceCreateSchema, attendanceUpdateSchema, caseCreateSchema, clientCreateSchema, deletionReasonSchema, listQuerySchema } from "@chronostek/contracts";
+import { attendanceCreateSchema, attendanceUpdateSchema, caseCreateBaseSchema, clientCreateSchema, deletionReasonSchema, listQuerySchema } from "@chronostek/contracts";
 import { Prisma, withTenant } from "@chronostek/database";
 import { Router } from "express";
 import { z } from "zod";
@@ -82,12 +82,19 @@ const conversionSchema = z.object({
   createClient: z.boolean().default(true),
   createCase: z.boolean().default(true),
   client: clientCreateSchema.partial().optional(),
-  case: caseCreateSchema.omit({ clientId: true }).optional(),
+  case: caseCreateBaseSchema.omit({ clientId: true }).optional(),
 });
 
 attendancesRouter.post("/:id/convert", requireAuth, requirePermission("attendance.convert"), async (request, response) => {
   const auth = request.auth!;
   const input = conversionSchema.parse(request.body);
+  const responsibleUserIds = [...new Set(
+    input.case?.responsibleUserIds?.length
+      ? input.case.responsibleUserIds
+      : input.case?.responsibleUserId
+        ? [input.case.responsibleUserId]
+        : [],
+  )];
   const result = await withTenant(auth.tenantId, async (tx) => {
     const attendance = await tx.attendance.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null } });
     if (!attendance) throw notFound();
@@ -95,7 +102,7 @@ attendancesRouter.post("/:id/convert", requireAuth, requirePermission("attendanc
     if (input.client?.primaryBranchId && input.client.primaryBranchId !== attendance.branchId) throw new AppError(422, "Vínculo inválido", "O cliente convertido deve permanecer na filial do atendimento.");
     let clientId = attendance.clientId;
     if (!clientId && input.createClient) {
-      const client = await tx.client.create({ data: { tenantId: auth.tenantId, primaryBranchId: input.client?.primaryBranchId ?? attendance.branchId, name: input.client?.name ?? attendance.clientName, searchName: normalizeSearch(input.client?.name ?? attendance.clientName), email: input.client?.email ?? attendance.email, phone: input.client?.phone ?? attendance.phone, type: input.client?.type ?? "INDIVIDUAL", notes: input.client?.notes } });
+      const client = await tx.client.create({ data: { tenantId: auth.tenantId, primaryBranchId: input.client?.primaryBranchId ?? attendance.branchId, responsibleUserId: input.client?.responsibleUserId ?? responsibleUserIds[0], name: input.client?.name ?? attendance.clientName, searchName: normalizeSearch(input.client?.name ?? attendance.clientName), email: input.client?.email ?? attendance.email, phone: input.client?.phone ?? attendance.phone, type: input.client?.type ?? "INDIVIDUAL", notes: input.client?.notes } });
       clientId = client.id;
       await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "CLIENT", entityId: client.id, action: "CLIENT_CREATED_FROM_ATTENDANCE", description: `Cliente criado a partir do atendimento de ${attendance.clientName}` } });
     }
@@ -105,10 +112,10 @@ attendancesRouter.post("/:id/convert", requireAuth, requirePermission("attendanc
       await Promise.all([
         assertLegalArea(tx, auth.tenantId, input.case.legalAreaId),
         assertClientBranch(tx, auth.tenantId, clientId, attendance.branchId),
-        assertUserBranchAccess(tx, auth.tenantId, input.case.responsibleUserId, attendance.branchId),
+        ...responsibleUserIds.map((userId) => assertUserBranchAccess(tx, auth.tenantId, userId, attendance.branchId)),
         assertUserBranchAccess(tx, auth.tenantId, input.case.attorneyId, attendance.branchId),
       ]);
-      const legalCase = await tx.legalCase.create({ data: { tenantId: auth.tenantId, branchId: attendance.branchId, legalAreaId: input.case.legalAreaId, caseType: input.case.caseType ?? "Não classificado", entryDate: input.case.entryDate, notes: input.case.notes, parties: { create: { clientId, isPrimary: true } }, assignments: { create: [input.case.responsibleUserId ? { userId: input.case.responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null, input.case.attorneyId ? { userId: input.case.attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null].filter((item): item is NonNullable<typeof item> => Boolean(item)) } } });
+      const legalCase = await tx.legalCase.create({ data: { tenantId: auth.tenantId, branchId: attendance.branchId, legalAreaId: input.case.legalAreaId, caseName: input.case.caseName, caseType: input.case.caseType ?? "Não classificado", processNumber: input.case.processNumber, processNumberSearch: input.case.processNumber ? normalizeSearch(input.case.processNumber).replace(/\s/g, "") : undefined, opposingParty: input.case.opposingParty, entryDate: input.case.entryDate, notes: input.case.notes, parties: { create: { clientId, isPrimary: true } }, assignments: { create: [...responsibleUserIds.map((userId, index) => ({ userId, type: "INTERNAL_OWNER" as const, isPrimary: index === 0 })), ...(input.case.attorneyId ? [{ userId: input.case.attorneyId, type: "ATTORNEY" as const, isPrimary: true }] : [])] } } });
       caseId = legalCase.id;
       await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: legalCase.id, action: "CASE_CREATED_FROM_ATTENDANCE", description: `Processo criado a partir do atendimento de ${attendance.clientName}` } });
       await createInitialChecklist(tx, auth.tenantId, legalCase.id, input.case.legalAreaId, auth.userId);

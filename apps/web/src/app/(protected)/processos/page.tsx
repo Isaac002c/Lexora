@@ -15,6 +15,7 @@ import { userSelectOptions } from "@/lib/user-options";
 interface CaseList {
   items: Array<{
     id: string;
+    caseName?: string;
     caseType: string;
     processNumber?: string;
     status: string;
@@ -86,6 +87,7 @@ export default async function CasesPage({
                   parent: x.primaryBranchId,
                 })),
               },
+              { name: "caseName", label: "Nome do processo", placeholder: "Ex.: Ação indenizatória — contrato comercial" },
               { name: "processNumber", label: "Número do processo", placeholder: "0000000-00.0000.0.00.0000" },
               { name: "caseType", label: "Classificação (opcional)", placeholder: "Ex.: Reclamação trabalhista" },
               { name: "opposingParty", label: "Parte contrária" },
@@ -100,9 +102,10 @@ export default async function CasesPage({
                 })),
               },
               {
-                name: "responsibleUserId",
-                label: "Responsável interno",
-                type: "select",
+                name: "responsibleUserIds",
+                label: "Responsáveis internos",
+                type: "multiselect",
+                required: true,
                 options: userSelectOptions(lookups.users),
               },
               {
@@ -125,7 +128,7 @@ export default async function CasesPage({
       <ModuleNav items={[{ label: "Todos", href: "/processos" }, { label: "Em análise", href: "/processos?status=EM_ANALISE" }, { label: "Aguardando documentos", href: "/processos?status=AGUARDANDO_DOCUMENTOS" }, { label: "Prontos para distribuição", href: "/processos?status=PRONTO_PARA_DISTRIBUICAO" }, { label: "Distribuídos", href: "/processos?status=DISTRIBUIDO" }, { label: "Em andamento", href: "/processos?status=EM_ANDAMENTO" }, { label: "Finalizados", href: "/processos?status=FINALIZADO" }, { label: "Arquivados", href: "/processos?status=ARQUIVADO" }, ...(user?.permissions.includes("case.restore") ? [{ label: "Excluídos", href: "/processos?deleted=only" }] : [])]} />
       <SearchForm
         defaultValue={search}
-        placeholder="Cliente, tipo ou número do processo"
+        placeholder="Nome, cliente, tipo ou número do processo"
       >
         <select
           name="branchId"
@@ -170,9 +173,9 @@ export default async function CasesPage({
             href={`/processos/${item.id}`}
             className="font-medium text-cyan-600 hover:underline"
           >
-            <span className="block">{item.processNumber ?? "Sem número"}</span>
+            <span className="block">{item.processNumber ?? item.caseName ?? "Sem número"}</span>
             <span className="text-muted-foreground text-xs">
-              {item.caseType}
+              {[item.caseName, item.caseType].filter(Boolean).join(" · ")}
             </span>
           </Link>,
           item.parties[0]?.client.name ?? "—",

@@ -36,6 +36,7 @@ export const permissions = [
   "case.history",
   "deadline.read",
   "deadline.manage",
+  "deadline.approve",
   "deadline.delete",
   "deadline.restore",
   "deadline.export",

@@ -166,6 +166,12 @@ const navigation: NavSection[] = [
         permissions: ["finance.read"],
       },
       {
+        label: "Análises Financeiras",
+        href: "/financeiro/analise",
+        icon: BarChart3,
+        permissions: ["finance.read"],
+      },
+      {
         label: "Contratos",
         href: "/financeiro/contratos",
         icon: CircleDollarSign,
@@ -237,6 +243,7 @@ const routeLabels: Record<string, string> = {
   calendario: "Calendário",
   checklists: "Checklists",
   contratos: "Contratos",
+  analise: "Análises",
   parcelas: "Contas a Receber",
   inadimplencia: "Inadimplência",
   comprovantes: "Comprovantes",

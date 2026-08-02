@@ -1,10 +1,10 @@
 import {
   deadlineCreateSchema,
   deadlineInternalState,
+  deadlineReviewSchema,
   deadlineStatusSchema,
   deadlineUpdateSchema,
   deletionReasonSchema,
-  internalDaysDelta,
   internalDueAt,
   listQuerySchema,
   optionalEnum,
@@ -18,6 +18,7 @@ import { forbidden, notFound } from "../../lib/app-error.js";
 import { assertCaseRelations, assertLegalArea, assertUserBranchAccess } from "../../lib/entity-access.js";
 import { recordAudit } from "../../lib/audit.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
+import { notifyDeadlineReviewers } from "../notifications/notifications.service.js";
 
 export const deadlinesRouter = Router();
 // Filtros opcionais toleram string vazia (sem filtro) — endurecido no backend.
@@ -46,7 +47,7 @@ deadlinesRouter.get(
         ? { responsibleUserId: query.responsibleId }
         : {}),
       ...(query.type ? { type: query.type } : {}),
-      ...(query.view === "completed" ? { status: "COMPLETED" } : query.view ? { status: { in: ["PENDING", "IN_PROGRESS"] } } : query.status ? { status: query.status as never } : {}),
+      ...(query.view === "completed" ? { status: "COMPLETED" } : query.view ? { status: { in: ["PENDING", "IN_PROGRESS", "PENDING_APPROVAL"] } } : query.status ? { status: query.status as never } : {}),
       ...(viewDueAt ? { dueAt: viewDueAt } : query.from || query.to
         ? { dueAt: { gte: query.from, lte: query.to } }
         : {}),
@@ -114,6 +115,7 @@ deadlinesRouter.post(
 deadlinesRouter.patch("/:id", requireAuth, requirePermission("deadline.manage"), async (request, response) => {
   const auth = request.auth!;
   const input = deadlineUpdateSchema.parse(request.body);
+  if (input.status === "COMPLETED" || input.status === "PENDING_APPROVAL") throw forbidden("Use o fluxo de envio e revisão para concluir o prazo.");
   const result = await withTenant(auth.tenantId, async (tx) => {
     const existing = await tx.deadline.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...deadlineAttorneyFilter(auth) } });
     if (!existing) throw notFound();
@@ -130,7 +132,7 @@ deadlinesRouter.patch("/:id", requireAuth, requirePermission("deadline.manage"),
       assertUserBranchAccess(tx, auth.tenantId, input.responsibleUserId ?? existing.responsibleUserId, relations.branchId),
       assertCaseRelations(tx, auth.tenantId, relations),
     ]);
-    const updated = await tx.deadline.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { ...input, completedAt: input.status === "COMPLETED" ? new Date() : input.status ? null : undefined } });
+    const updated = await tx.deadline.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { ...input, completedAt: input.status ? null : undefined, ...(existing.status === "PENDING_APPROVAL" ? { status: "IN_PROGRESS", submittedForApprovalAt: null, reviewedAt: null, reviewedById: null, reviewNotes: null } : {}) } });
     await recordAudit(tx, auth, request, { module: "PRAZOS", entityType: "DEADLINE", entityId: updated.id, action: "DEADLINE_UPDATED", description: `Prazo ${updated.title} atualizado`, branchId: updated.branchId, before: existing, after: updated });
     return updated;
   });
@@ -150,28 +152,61 @@ deadlinesRouter.patch(
       });
       if (!existing) throw notFound();
       assertBranch(auth, existing.branchId);
+      if (input.status === "COMPLETED" || input.status === "PENDING_APPROVAL") throw forbidden("Use o fluxo de envio e revisão para concluir o prazo.");
+      if (existing.status === "COMPLETED" && !auth.permissions.includes("deadline.approve")) throw forbidden("Somente um gestor pode reabrir um prazo aprovado.");
       const deadline = await tx.deadline.update({
         where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } },
         data: {
           status: input.status,
-          completedAt: input.status === "COMPLETED" ? new Date() : null,
+          completedAt: null,
         },
       });
-      let description = `Prazo "${existing.title}" alterado para ${input.status}`;
-      if (input.status === "COMPLETED" && deadline.completedAt) {
-        const delta = internalDaysDelta(deadline.dueAt, deadline.completedAt);
-        description =
-          delta >= 0
-            ? `Prazo "${existing.title}" concluído dentro da antecedência (${delta} dia(s) antes do prazo interno)`
-            : `Prazo "${existing.title}" concluído FORA da antecedência (${Math.abs(delta)} dia(s) após o prazo interno)`;
-      }
-      await recordAudit(tx, auth, request, { module: "PRAZOS", entityType: "DEADLINE", entityId: deadline.id, action: input.status === "COMPLETED" ? "DEADLINE_COMPLETED" : existing.status === "COMPLETED" ? "DEADLINE_REOPENED" : "DEADLINE_STATUS_UPDATED", description, branchId: deadline.branchId, before: existing, after: deadline });
+      const description = `Prazo "${existing.title}" alterado para ${input.status}`;
+      await recordAudit(tx, auth, request, { module: "PRAZOS", entityType: "DEADLINE", entityId: deadline.id, action: existing.status === "COMPLETED" ? "DEADLINE_REOPENED" : "DEADLINE_STATUS_UPDATED", description, branchId: deadline.branchId, before: existing, after: deadline });
       await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: existing.caseId, action: "DEADLINE_STATUS_UPDATED", description } });
       return deadline;
     });
     response.json(result);
   },
 );
+
+deadlinesRouter.post("/:id/submit-approval", requireAuth, requirePermission("deadline.manage"), async (request, response) => {
+  const auth = request.auth!;
+  const result = await withTenant(auth.tenantId, async (tx) => {
+    const existing = await tx.deadline.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...deadlineAttorneyFilter(auth) } });
+    if (!existing) throw notFound();
+    assertBranch(auth, existing.branchId);
+    if (!["PENDING", "IN_PROGRESS"].includes(existing.status)) throw forbidden("Este prazo não está disponível para envio à aprovação.");
+    const deadline = await tx.deadline.update({
+      where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } },
+      data: { status: "PENDING_APPROVAL", submittedForApprovalAt: new Date(), reviewedAt: null, reviewedById: null, reviewNotes: null },
+    });
+    await notifyDeadlineReviewers(tx, deadline);
+    await recordAudit(tx, auth, request, { module: "PRAZOS", entityType: "DEADLINE", entityId: deadline.id, action: "DEADLINE_SUBMITTED_FOR_APPROVAL", description: `Prazo "${deadline.title}" enviado para aprovação`, branchId: deadline.branchId, before: existing, after: deadline });
+    return deadline;
+  });
+  response.json(result);
+});
+
+deadlinesRouter.post("/:id/review", requireAuth, requirePermission("deadline.approve"), async (request, response) => {
+  const auth = request.auth!;
+  const input = deadlineReviewSchema.parse(request.body);
+  const result = await withTenant(auth.tenantId, async (tx) => {
+    const branches = allowedBranches(auth);
+    const existing = await tx.deadline.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, status: "PENDING_APPROVAL", ...(branches ? { branchId: { in: branches } } : {}) } });
+    if (!existing) throw notFound("Prazo não encontrado ou não está aguardando aprovação.");
+    const approved = input.action === "APPROVE";
+    const deadline = await tx.deadline.update({
+      where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } },
+      data: { status: approved ? "COMPLETED" : "IN_PROGRESS", completedAt: approved ? new Date() : null, reviewedAt: new Date(), reviewedById: auth.userId, reviewNotes: input.notes },
+    });
+    const description = approved ? `Prazo "${deadline.title}" aprovado e concluído` : `Prazo "${deadline.title}" devolvido para ajustes: ${input.notes}`;
+    await recordAudit(tx, auth, request, { module: "PRAZOS", entityType: "DEADLINE", entityId: deadline.id, action: approved ? "DEADLINE_APPROVED" : "DEADLINE_RETURNED", description, branchId: deadline.branchId, before: existing, after: deadline });
+    await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, entityType: "LEGAL_CASE", entityId: deadline.caseId, action: approved ? "DEADLINE_APPROVED" : "DEADLINE_RETURNED", description } });
+    return deadline;
+  });
+  response.json(result);
+});
 
 deadlinesRouter.delete("/:id", requireAuth, requirePermission("deadline.delete"), async (request, response) => {
   const auth = request.auth!;

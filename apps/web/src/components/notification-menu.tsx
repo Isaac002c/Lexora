@@ -17,6 +17,8 @@ interface Notification {
 function href(item: Notification) {
   if (item.entityType === "DEADLINE")
     return `/prazos?search=${encodeURIComponent(item.message)}`;
+  if (item.entityType === "DEADLINE_REVIEW")
+    return "/prazos?status=PENDING_APPROVAL";
   if (item.entityType === "HEARING")
     return `/audiencias?search=${encodeURIComponent(item.message)}`;
   if (item.entityType === "TASK")

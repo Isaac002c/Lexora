@@ -1,7 +1,7 @@
 import { Badge } from "./ui/badge";
 
 const danger = ["VENCIDO", "DARK_RED", "RECUSADO", "REJECTED"];
-const warning = ["AGUARDANDO_DOCUMENTOS", "AGUARDANDO_CONTRATO", "AGUARDANDO_PAGAMENTO", "YELLOW", "PENDING", "PENDENTE", "A_VENCER"];
+const warning = ["AGUARDANDO_DOCUMENTOS", "AGUARDANDO_CONTRATO", "AGUARDANDO_PAGAMENTO", "YELLOW", "PENDING", "PENDING_APPROVAL", "PENDENTE", "A_VENCER"];
 const success = ["ACTIVE", "PAGO", "PAID", "COMPLETED", "FINALIZADO", "RECEBIDO", "ANALISADO", "GREEN", "APPROVED", "EM_DIA"];
 const orange = ["INADIMPLENTE_15_DIAS"];
 
@@ -13,7 +13,7 @@ const labels: Record<string, string> = {
   GREEN: "No prazo", YELLOW: "Atenção", RED: "Crítico", DARK_RED: "Vencido", GRAY: "Encerrado",
   // Status genéricos (usuário, cliente, contrato, prazo, documento, parcela)
   ACTIVE: "Ativo", INACTIVE: "Inativo", INVITED: "Convidado", SUSPENDED: "Suspenso", ARCHIVED: "Arquivado",
-  PENDING: "Pendente", IN_PROGRESS: "Em andamento", COMPLETED: "Concluído", CANCELLED: "Cancelado",
+  PENDING: "Pendente", PENDING_APPROVAL: "Aguardando aprovação", IN_PROGRESS: "Em andamento", COMPLETED: "Concluído", CANCELLED: "Cancelado",
   RECEIVED: "Recebido", UNDER_REVIEW: "Em análise", APPROVED: "Aprovado", REJECTED: "Recusado",
   DRAFT: "Rascunho", PAID: "Pago",
   // Atendimento

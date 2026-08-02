@@ -41,12 +41,14 @@ export function CreatePanel({
   fields,
   method = "POST",
   buttonLabel = "Novo registro",
+  fixedBody,
 }: {
   title: string;
   endpoint: string;
   fields: FormField[];
   method?: "POST" | "PATCH";
   buttonLabel?: string;
+  fixedBody?: Record<string, unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -67,7 +69,7 @@ export function CreatePanel({
     setSaving(true);
     setError(undefined);
     const data = new FormData(form);
-    const body: Record<string, unknown> = {};
+    const body: Record<string, unknown> = { ...fixedBody };
     for (const field of fields) {
       if (field.type === "checkbox")
         body[field.name] = data.get(field.name) === "on";
@@ -99,7 +101,7 @@ export function CreatePanel({
     setDirty(false);
     router.refresh();
     return true;
-  }, [endpoint, fields, method, router, setDirty]);
+  }, [endpoint, fields, fixedBody, method, router, setDirty]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

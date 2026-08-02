@@ -4,6 +4,7 @@ import { prisma } from "@chronostek/database";
 import { config as loadEnv } from "dotenv";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+import { startNotificationScheduler } from "./modules/notifications/notifications.service.js";
 
 // Janelas de data (prazos "hoje"/"próximos N dias", início de mês no painel)
 // usam o relógio do processo. Fixamos o fuso em São Paulo para alinhar com a
@@ -23,9 +24,11 @@ const app = createApp(env.WEB_URL);
 const server = app.listen(env.API_PORT, () => {
   console.info(`Lexora API listening on port ${env.API_PORT}`);
 });
+const stopNotificationScheduler = startNotificationScheduler();
 
 async function shutdown(signal: string) {
   console.info(`${signal} received, shutting down`);
+  stopNotificationScheduler();
   server.close(async () => {
     await prisma.$disconnect();
     process.exit(0);

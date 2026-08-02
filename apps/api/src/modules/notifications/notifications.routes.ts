@@ -1,96 +1,15 @@
 import { withTenant } from "@chronostek/database";
 import { Router } from "express";
-import { allowedBranches, deadlineAttorneyFilter } from "../../lib/tenant.js";
 import { notFound } from "../../lib/app-error.js";
 import { requireAuth } from "../auth/auth.middleware.js";
+import { ensureTenantOperationalNotifications } from "./notifications.service.js";
 
 export const notificationsRouter = Router();
 
 notificationsRouter.get("/", requireAuth, async (request, response) => {
   const auth = request.auth!;
+  await ensureTenantOperationalNotifications(auth.tenantId);
   const data = await withTenant(auth.tenantId, async (tx) => {
-    if (auth.permissions.includes("deadline.read")) {
-      const branches = allowedBranches(auth);
-      const now = new Date();
-      const soon = new Date(now.getTime() + 5 * 86_400_000);
-      const deadlines = await tx.deadline.findMany({
-        where: {
-          tenantId: auth.tenantId,
-          deletedAt: null,
-          status: { in: ["PENDING", "IN_PROGRESS"] },
-          dueAt: { lte: soon },
-          ...(branches ? { branchId: { in: branches } } : {}),
-          ...deadlineAttorneyFilter(auth),
-        },
-        select: { id: true, branchId: true, title: true, dueAt: true },
-        take: 100,
-      });
-      const existing = await tx.notification.findMany({
-        where: {
-          tenantId: auth.tenantId,
-          userId: auth.userId,
-          entityType: "DEADLINE",
-          entityId: { in: deadlines.map((item) => item.id) },
-        },
-        select: { entityId: true },
-      });
-      const known = new Set(existing.map((item) => item.entityId));
-      const missing = deadlines.filter((item) => !known.has(item.id));
-      if (missing.length) {
-        await tx.notification.createMany({
-          data: missing.map((item) => ({
-            tenantId: auth.tenantId,
-            userId: auth.userId,
-            branchId: item.branchId,
-            type: "DEADLINE" as const,
-            title: item.dueAt < now ? "Prazo vencido" : "Prazo próximo",
-            message: item.title,
-            entityType: "DEADLINE",
-            entityId: item.id,
-          })),
-        });
-      }
-    }
-    if (auth.permissions.includes("hearing.read")) {
-      const branches = allowedBranches(auth);
-      const now = new Date();
-      const hearings = await tx.hearing.findMany({
-        where: {
-          tenantId: auth.tenantId,
-          deletedAt: null,
-          status: { in: ["AGENDADA", "REAGENDADA"] },
-          startsAt: { gte: now, lte: new Date(now.getTime() + 5 * 86_400_000) },
-          ...(branches ? { branchId: { in: branches } } : {}),
-          OR: [{ attorneyId: auth.userId }, { assistantId: auth.userId }],
-        },
-        select: { id: true, branchId: true, type: true },
-        take: 100,
-      });
-      const existing = await tx.notification.findMany({
-        where: {
-          tenantId: auth.tenantId,
-          userId: auth.userId,
-          entityType: "HEARING",
-          entityId: { in: hearings.map((item) => item.id) },
-        },
-        select: { entityId: true },
-      });
-      const known = new Set(existing.map((item) => item.entityId));
-      const missing = hearings.filter((item) => !known.has(item.id));
-      if (missing.length)
-        await tx.notification.createMany({
-          data: missing.map((item) => ({
-            tenantId: auth.tenantId,
-            userId: auth.userId,
-            branchId: item.branchId,
-            type: "SYSTEM" as const,
-            title: "Audiência em até cinco dias",
-            message: item.type,
-            entityType: "HEARING",
-            entityId: item.id,
-          })),
-        });
-    }
     const [items, unread] = await Promise.all([
       tx.notification.findMany({
         where: { tenantId: auth.tenantId, userId: auth.userId },

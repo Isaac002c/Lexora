@@ -2,6 +2,9 @@ import { z } from "zod";
 
 const optionalText = z.string().trim().max(5000).optional().or(z.literal("").transform(() => undefined));
 const optionalUuid = z.string().uuid().optional().or(z.literal("").transform(() => undefined));
+const optionalUuidArray = z
+  .preprocess((value) => (typeof value === "string" ? [value] : value), z.array(z.string().uuid()).max(20).optional())
+  .transform((value) => value ? [...new Set(value)] : undefined);
 const optionalDate = z.coerce.date().optional().or(z.literal("").transform(() => undefined));
 
 // #1 — Campos de data sem horário. Aceita "yyyy-mm-dd" (data pura) e a interpreta
@@ -114,23 +117,32 @@ export const attendanceCreateSchema = z.object({
 
 export const attendanceUpdateSchema = attendanceCreateSchema.partial();
 
-export const caseCreateSchema = z.object({
+export const caseCreateBaseSchema = z.object({
   branchId: z.string().uuid(),
   legalAreaId: z.string().uuid(),
   clientId: z.string().uuid(),
+  caseName: optionalText,
   caseType: z.string().trim().min(2).max(160).optional(),
   processNumber: optionalText,
   opposingParty: optionalText,
   responsibleUserId: optionalUuid,
+  responsibleUserIds: optionalUuidArray,
   attorneyId: optionalUuid,
   entryDate: z.coerce.date(),
   notes: optionalText,
+});
+
+export const caseCreateSchema = caseCreateBaseSchema.refine((value) => Boolean(value.responsibleUserId || value.responsibleUserIds?.length || value.attorneyId), {
+  message: "Informe ao menos um responsável pelo processo.",
+  path: ["responsibleUserIds"],
 });
 
 export const caseUpdateSchema = z.object({
   status: z.enum(["EM_ANALISE", "AGUARDANDO_DOCUMENTOS", "AGUARDANDO_CONTRATO", "AGUARDANDO_PAGAMENTO", "PETICAO_INICIAL", "PRONTO_PARA_DISTRIBUICAO", "DISTRIBUIDO", "EM_ANDAMENTO", "FINALIZADO", "ARQUIVADO"]).optional(),
   lastProgress: optionalText,
   notes: optionalText,
+  caseName: optionalText,
+  caseType: z.string().trim().min(2).max(160).optional(),
   processNumber: optionalText,
   opposingParty: optionalText,
   distributionDate: z.coerce.date().optional(),
@@ -139,6 +151,7 @@ export const caseUpdateSchema = z.object({
   hearingAt: optionalInputDate,
   appealDueAt: optionalInputDate,
   responsibleUserId: optionalUuid,
+  responsibleUserIds: optionalUuidArray,
   attorneyId: optionalUuid,
 });
 
@@ -156,10 +169,31 @@ export const deadlineCreateSchema = z.object({
 });
 
 export const deadlineUpdateSchema = deadlineCreateSchema.partial().extend({
-  status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]).optional(),
+  status: z.enum(["PENDING", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED"]).optional(),
 });
 
-export const deadlineStatusSchema = z.object({ status: z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]) });
+export const deadlineStatusSchema = z.object({ status: z.enum(["PENDING", "IN_PROGRESS", "PENDING_APPROVAL", "COMPLETED", "CANCELLED"]) });
+export const deadlineReviewSchema = z.object({
+  action: z.enum(["APPROVE", "RETURN"]),
+  notes: z.string().trim().min(3).max(2000).optional(),
+}).refine((value) => value.action !== "RETURN" || Boolean(value.notes), {
+  message: "Informe o motivo para devolver o prazo.",
+  path: ["notes"],
+});
+
+export const clientChecklistCreateSchema = z.object({
+  name: z.string().trim().min(2).max(160),
+  items: z.array(z.object({
+    title: z.string().trim().min(2).max(200),
+    description: z.string().trim().max(1000).optional(),
+    isRequired: z.boolean().default(true),
+  })).min(1).max(100),
+});
+
+export const clientChecklistItemUpdateSchema = z.object({
+  status: z.enum(["PENDENTE", "RECEBIDO", "ANALISADO", "RECUSADO", "NAO_SE_APLICA"]),
+  notes: z.string().trim().max(5000).optional(),
+});
 
 // #5 — Prazo criado de dentro do processo: filial, processo, cliente e área são
 // inferidos do processo no backend; o usuário informa apenas o essencial.

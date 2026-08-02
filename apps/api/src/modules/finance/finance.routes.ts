@@ -18,12 +18,19 @@ import { allowedBranches, assertBranch } from "../../lib/tenant.js";
 import { forbidden, notFound } from "../../lib/app-error.js";
 import { assertCaseRelations, assertClientBranch } from "../../lib/entity-access.js";
 import { recordAudit } from "../../lib/audit.js";
+import { normalizeSearch } from "../../lib/field-crypto.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 import { removeLocalFile, resolveStoredFile, saveLocalFile } from "../documents/storage.js";
 
 export const financeRouter = Router();
 const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 const financeQuerySchema = listQuerySchema.extend({ view: optionalEnum(["upcoming", "overdue", "delinquent", "paid", "cancelled"]) });
+const financeAnalyticsQuerySchema = z.object({
+  year: z.coerce.number().int().min(2000).max(2100).optional(),
+  branchId: z.string().uuid().optional(),
+  legalAreaId: z.string().uuid().optional(),
+  responsibleId: z.string().uuid().optional(),
+});
 
 financeRouter.get(
   "/contracts",
@@ -40,7 +47,13 @@ financeRouter.get(
       ...(branches ? { branchId: { in: branches } } : {}),
       ...(query.status ? { status: query.status as never } : {}),
       ...(query.search
-        ? { client: { searchName: { contains: query.search.toLowerCase() } } }
+        ? {
+            OR: [
+              { client: { searchName: { contains: normalizeSearch(query.search) } } },
+              { case: { processNumberSearch: { contains: normalizeSearch(query.search).replace(/\s/g, "") } } },
+              { case: { caseName: { contains: query.search, mode: "insensitive" } } },
+            ],
+          }
         : {}),
       ...(query.view === "upcoming" ? { installments: { some: { status: "PENDING", dueDate: { gte: new Date(), lte: new Date(Date.now() + 7 * 86_400_000) } } } } : {}),
       ...(query.view === "overdue" ? { installments: { some: { status: "PENDING", dueDate: { lt: new Date() } } } } : {}),
@@ -53,9 +66,9 @@ financeRouter.get(
         tx.feeContract.findMany({
           where,
           include: {
-            client: { select: { name: true } },
+            client: { select: { name: true, phone: true } },
             branch: { select: { name: true } },
-            case: { select: { caseType: true, processNumber: true } },
+            case: { select: { caseName: true, caseType: true, processNumber: true, legalArea: { select: { name: true } }, assignments: { where: { type: "INTERNAL_OWNER" }, select: { user: { select: { name: true } } } } } },
             installments: { where: { deletedAt: null }, orderBy: { installmentNumber: "asc" } },
           },
           orderBy: { createdAt: "desc" },
@@ -108,6 +121,156 @@ financeRouter.get("/summary", requireAuth, requirePermission("finance.read"), as
     return { contracted: contracted._sum.feeAmount?.toFixed(2) ?? "0.00", activeContracts, upcoming, overdue, delinquent, receivedThisMonth: received._sum.amount?.toFixed(2) ?? "0.00", costs: costs._sum.costAmount?.toFixed(2) ?? "0.00", completedContracts: completed };
   });
   response.json(summary);
+});
+
+financeRouter.get("/analytics", requireAuth, requirePermission("finance.read"), async (request, response) => {
+  const auth = request.auth!;
+  const query = financeAnalyticsQuerySchema.parse(request.query);
+  const year = query.year ?? new Date().getFullYear();
+  const dueFrom = new Date(Date.UTC(year, 0, 1));
+  const dueTo = new Date(Date.UTC(year + 1, 0, 1));
+  const instantFrom = new Date(`${year}-01-01T00:00:00-03:00`);
+  const instantTo = new Date(`${year + 1}-01-01T00:00:00-03:00`);
+  const branches = allowedBranches(auth, query.branchId);
+  const contractScope: Prisma.FeeContractWhereInput = {
+    tenantId: auth.tenantId,
+    deletedAt: null,
+    status: { not: "CANCELLED" },
+    ...(branches ? { branchId: { in: branches } } : {}),
+    ...(query.legalAreaId || query.responsibleId
+      ? {
+          case: {
+            ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}),
+            ...(query.responsibleId
+              ? { assignments: { some: { userId: query.responsibleId } } }
+              : {}),
+          },
+        }
+      : {}),
+  };
+  const result = await withTenant(auth.tenantId, async (tx) => {
+    const [installments, contracts] = await Promise.all([
+      tx.paymentInstallment.findMany({
+        where: {
+          tenantId: auth.tenantId,
+          deletedAt: null,
+          contract: contractScope,
+          OR: [
+            { dueDate: { gte: dueFrom, lt: dueTo } },
+            { paidAt: { gte: instantFrom, lt: instantTo } },
+          ],
+        },
+        select: {
+          amount: true,
+          dueDate: true,
+          paidAt: true,
+          status: true,
+        },
+      }),
+      tx.feeContract.findMany({
+        where: { ...contractScope, createdAt: { gte: instantFrom, lt: instantTo } },
+        select: {
+          feeAmount: true,
+          costAmount: true,
+          branch: { select: { id: true, name: true } },
+          case: {
+            select: {
+              legalArea: { select: { id: true, name: true } },
+              assignments: {
+                where: { type: "INTERNAL_OWNER" },
+                select: { user: { select: { id: true, name: true } } },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const months = Array.from({ length: 12 }, (_, month) => ({
+      month: month + 1,
+      projected: 0,
+      received: 0,
+      overdue: 0,
+      projectedCount: 0,
+      receivedCount: 0,
+      overdueCount: 0,
+    }));
+    const now = new Date();
+    for (const installment of installments) {
+      const amount = installment.amount.toNumber();
+      if (installment.dueDate >= dueFrom && installment.dueDate < dueTo) {
+        const entry = months[installment.dueDate.getUTCMonth()]!;
+        entry.projected += amount;
+        entry.projectedCount += 1;
+        if (installment.status === "PENDING" && installment.dueDate < now) {
+          entry.overdue += amount;
+          entry.overdueCount += 1;
+        }
+      }
+      if (installment.status === "PAID" && installment.paidAt && installment.paidAt >= instantFrom && installment.paidAt < instantTo) {
+        const paidMonth = Number(new Intl.DateTimeFormat("en-US", { month: "numeric", timeZone: "America/Sao_Paulo" }).format(installment.paidAt)) - 1;
+        const entry = months[paidMonth]!;
+        entry.received += amount;
+        entry.receivedCount += 1;
+      }
+    }
+
+    type Cut = { name: string; contracts: number; amount: number };
+    const addCut = (map: Map<string, Cut>, id: string, name: string, amount: number) => {
+      const current = map.get(id) ?? { name, contracts: 0, amount: 0 };
+      current.contracts += 1;
+      current.amount += amount;
+      map.set(id, current);
+    };
+    const byBranch = new Map<string, Cut>();
+    const byArea = new Map<string, Cut>();
+    const byResponsible = new Map<string, Cut>();
+    let contracted = 0;
+    let costs = 0;
+    for (const contract of contracts) {
+      const amount = contract.feeAmount.toNumber();
+      contracted += amount;
+      costs += contract.costAmount.toNumber();
+      addCut(byBranch, contract.branch.id, contract.branch.name, amount);
+      if (contract.case) {
+        addCut(byArea, contract.case.legalArea.id, contract.case.legalArea.name, amount);
+        for (const assignment of contract.case.assignments) {
+          addCut(byResponsible, assignment.user.id, assignment.user.name, amount);
+        }
+      } else {
+        addCut(byArea, "unlinked", "Sem processo vinculado", amount);
+        addCut(byResponsible, "unassigned", "Sem responsável definido", amount);
+      }
+    }
+    const serializeCuts = (map: Map<string, Cut>) =>
+      [...map.values()]
+        .sort((left, right) => right.amount - left.amount)
+        .map((item) => ({ ...item, amount: item.amount.toFixed(2) }));
+    const projected = months.reduce((total, month) => total + month.projected, 0);
+    const received = months.reduce((total, month) => total + month.received, 0);
+    const overdue = months.reduce((total, month) => total + month.overdue, 0);
+    return {
+      year,
+      totals: {
+        contracted: contracted.toFixed(2),
+        costs: costs.toFixed(2),
+        projected: projected.toFixed(2),
+        received: received.toFixed(2),
+        overdue: overdue.toFixed(2),
+        receiptRate: projected > 0 ? Number(((received / projected) * 100).toFixed(1)) : 0,
+      },
+      months: months.map((month) => ({
+        ...month,
+        projected: month.projected.toFixed(2),
+        received: month.received.toFixed(2),
+        overdue: month.overdue.toFixed(2),
+      })),
+      byBranch: serializeCuts(byBranch),
+      byArea: serializeCuts(byArea),
+      byResponsible: serializeCuts(byResponsible),
+    };
+  });
+  response.json(result);
 });
 
 financeRouter.get("/contracts/:id", requireAuth, requirePermission("finance.read"), async (request, response) => {

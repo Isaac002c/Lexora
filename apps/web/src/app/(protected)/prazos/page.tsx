@@ -80,6 +80,8 @@ export default async function DeadlinesPage({
     fetchData<Lookups>("/v1/lookups"),
     getCurrentUser(),
   ]);
+  const canManage = Boolean(user?.permissions.includes("deadline.manage"));
+  const canApprove = Boolean(user?.permissions.includes("deadline.approve"));
   const deadlineFields = [
     { name: "title", label: "Título", required: true },
     {
@@ -162,14 +164,14 @@ export default async function DeadlinesPage({
       <PageHeader
         eyebrow={`${data.total} prazos`}
         title="Prazos"
-        description="Controle operacional de vencimentos, audiências e compromissos."
+        description="Controle operacional de vencimentos com revisão gerencial antes da conclusão."
         action={
-          <CreatePanel
+          canManage ? <CreatePanel
             title="Novo prazo"
             endpoint="/api/v1/deadlines"
             buttonLabel="Novo prazo"
             fields={deadlineFields}
-          />
+          /> : undefined
         }
       />
       <ModuleNav
@@ -180,6 +182,7 @@ export default async function DeadlinesPage({
           { label: "Próximos 5 dias", href: "/prazos?view=next5" },
           { label: "Próximos 7 dias", href: "/prazos?view=next7" },
           { label: "Mais distantes", href: "/prazos?view=distant" },
+          { label: "Aguardando aprovação", href: "/prazos?status=PENDING_APPROVAL" },
           { label: "Concluídos", href: "/prazos?view=completed" },
           ...(user?.permissions.includes("deadline.restore")
             ? [{ label: "Excluídos", href: "/prazos?deleted=only" }]
@@ -292,7 +295,7 @@ export default async function DeadlinesPage({
             </span>
           </span>,
           <div key="actions" className="flex flex-wrap gap-2">
-            {!item.deletedAt && (
+            {!item.deletedAt && canManage && item.status !== "PENDING_APPROVAL" && (
               <CreatePanel
                 title={`Editar ${item.title}`}
                 endpoint={`/api/v1/deadlines/${item.id}`}
@@ -318,22 +321,50 @@ export default async function DeadlinesPage({
                 }))}
               />
             )}
-            {!item.deletedAt &&
-              (item.status === "COMPLETED" ? (
+            {!item.deletedAt && item.status === "COMPLETED" && canApprove && (
                 <ApiActionButton
                   method="PATCH"
                   endpoint={`/api/v1/deadlines/${item.id}/status`}
                   body={{ status: "PENDING" }}
                   label="Reabrir"
+                  confirmMessage="Reabrir este prazo concluído?"
                 />
-              ) : (
+            )}
+            {!item.deletedAt &&
+              canManage &&
+              ["PENDING", "IN_PROGRESS"].includes(item.status) && (
                 <ApiActionButton
-                  method="PATCH"
-                  endpoint={`/api/v1/deadlines/${item.id}/status`}
-                  body={{ status: "COMPLETED" }}
-                  label="Concluir"
+                  endpoint={`/api/v1/deadlines/${item.id}/submit-approval`}
+                  body={{}}
+                  label="Enviar para aprovação"
+                  confirmMessage="Enviar a conclusão deste prazo para aprovação dos superiores?"
                 />
-              ))}
+              )}
+            {!item.deletedAt && item.status === "PENDING_APPROVAL" && canApprove && (
+              <>
+                <ApiActionButton
+                  endpoint={`/api/v1/deadlines/${item.id}/review`}
+                  body={{ action: "APPROVE" }}
+                  label="Aprovar conclusão"
+                  confirmMessage="Aprovar e concluir definitivamente este prazo?"
+                  variant="default"
+                />
+                <CreatePanel
+                  title={`Devolver ${item.title}`}
+                  endpoint={`/api/v1/deadlines/${item.id}/review`}
+                  buttonLabel="Devolver para ajuste"
+                  fixedBody={{ action: "RETURN" }}
+                  fields={[
+                    {
+                      name: "notes",
+                      label: "Motivo da devolução",
+                      type: "textarea",
+                      required: true,
+                    },
+                  ]}
+                />
+              </>
+            )}
             {item.deletedAt
               ? user?.permissions.includes("deadline.restore") && (
                   <SoftDeleteAction

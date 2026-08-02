@@ -18,12 +18,14 @@ export function ChecklistItemControl({
   status,
   notes,
   canManage,
+  endpoint,
 }: {
   itemId: string;
   title: string;
   status: string;
   notes?: string;
   canManage: boolean;
+  endpoint?: string;
 }) {
   const [currentStatus, setCurrentStatus] = useState(status);
   const [note, setNote] = useState(notes ?? "");
@@ -34,7 +36,7 @@ export function ChecklistItemControl({
   async function save(nextStatus: string, nextNote: string) {
     setSaving(true);
     setError(undefined);
-    const response = await fetch(`/api/v1/checklists/items/${itemId}`, {
+    const response = await fetch(endpoint ?? `/api/v1/checklists/items/${itemId}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ status: nextStatus, notes: nextNote || undefined }),

@@ -16,7 +16,7 @@ casesRouter.get("/", requireAuth, requirePermission("case.read"), async (request
   const query = listQuerySchema.parse(request.query);
   if (query.deleted !== "exclude" && !auth.permissions.includes("case.restore")) throw forbidden();
   const branches = allowedBranches(auth, query.branchId);
-  const where: Prisma.LegalCaseWhereInput = { tenantId: auth.tenantId, ...(query.deleted === "only" ? { deletedAt: { not: null } } : query.deleted === "exclude" ? { deletedAt: null } : {}), ...(branches ? { branchId: { in: branches } } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.status ? { status: query.status as never } : {}), ...caseAssignmentFilter(auth), ...(query.responsibleId ? { assignments: { some: { userId: query.responsibleId } } } : {}), ...(query.search ? { OR: [{ processNumberSearch: { contains: normalizeSearch(query.search) } }, { caseType: { contains: query.search, mode: "insensitive" } }, { parties: { some: { client: { searchName: { contains: normalizeSearch(query.search) } } } } }] } : {}) };
+  const where: Prisma.LegalCaseWhereInput = { tenantId: auth.tenantId, ...(query.deleted === "only" ? { deletedAt: { not: null } } : query.deleted === "exclude" ? { deletedAt: null } : {}), ...(branches ? { branchId: { in: branches } } : {}), ...(query.legalAreaId ? { legalAreaId: query.legalAreaId } : {}), ...(query.status ? { status: query.status as never } : {}), ...caseAssignmentFilter(auth), ...(query.responsibleId ? { assignments: { some: { userId: query.responsibleId } } } : {}), ...(query.search ? { OR: [{ processNumberSearch: { contains: normalizeSearch(query.search) } }, { caseName: { contains: query.search, mode: "insensitive" } }, { caseType: { contains: query.search, mode: "insensitive" } }, { parties: { some: { client: { searchName: { contains: normalizeSearch(query.search) } } } } }] } : {}) };
   const data = await withTenant(auth.tenantId, async (tx) => {
     const [items, total] = await Promise.all([
       tx.legalCase.findMany({ where, include: { branch: { select: { name: true } }, legalArea: { select: { name: true } }, parties: { where: { isPrimary: true }, include: { client: { select: { id: true, name: true } } } }, assignments: { include: { user: { select: { name: true } } } } }, orderBy: { updatedAt: "desc" }, skip: (query.page - 1) * query.pageSize, take: query.pageSize }),
@@ -32,18 +32,19 @@ casesRouter.post("/", requireAuth, requirePermission("case.create"), async (requ
   const input = caseCreateSchema.parse(request.body);
   assertBranch(auth, input.branchId);
   const item = await withTenant(auth.tenantId, async (tx) => {
+    const responsibleUserIds = [...new Set(input.responsibleUserIds ?? (input.responsibleUserId ? [input.responsibleUserId] : []))];
     await Promise.all([
       assertLegalArea(tx, auth.tenantId, input.legalAreaId),
       assertClientBranch(tx, auth.tenantId, input.clientId, input.branchId),
-      assertUserBranchAccess(tx, auth.tenantId, input.responsibleUserId, input.branchId),
+      ...responsibleUserIds.map((userId) => assertUserBranchAccess(tx, auth.tenantId, userId, input.branchId)),
       assertUserBranchAccess(tx, auth.tenantId, input.attorneyId, input.branchId),
     ]);
     const legalCase = await tx.legalCase.create({ data: {
-      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseType: input.caseType ?? "Não classificado",
+      tenantId: auth.tenantId, branchId: input.branchId, legalAreaId: input.legalAreaId, caseName: input.caseName, caseType: input.caseType ?? "Não classificado",
       processNumber: input.processNumber, processNumberSearch: input.processNumber ? normalizeSearch(input.processNumber).replace(/\s/g, "") : undefined,
       opposingParty: input.opposingParty, entryDate: input.entryDate, notes: input.notes,
       parties: { create: { clientId: input.clientId, isPrimary: true } },
-      assignments: { create: [input.responsibleUserId ? { userId: input.responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null, input.attorneyId ? { userId: input.attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry)) },
+      assignments: { create: [...responsibleUserIds.map((userId, index) => ({ userId, type: "INTERNAL_OWNER" as const, isPrimary: index === 0 })), ...(input.attorneyId ? [{ userId: input.attorneyId, type: "ATTORNEY" as const, isPrimary: true }] : [])] },
     } });
     await recordAudit(tx, auth, request, { module: "PROCESSOS", entityType: "LEGAL_CASE", entityId: legalCase.id, action: "CASE_CREATED", description: `Processo ${legalCase.caseType} criado`, branchId: legalCase.branchId, after: legalCase });
     await createInitialChecklist(tx, auth.tenantId, legalCase.id, input.legalAreaId, auth.userId);
@@ -85,19 +86,28 @@ casesRouter.patch("/:id", requireAuth, async (request, response) => {
   const auth = request.auth!;
   if (!auth.permissions.includes("case.update") && !auth.permissions.includes("case.update_assigned")) throw forbidden();
   const input = caseUpdateSchema.parse(request.body);
-  const assignmentChange = Object.prototype.hasOwnProperty.call(request.body, "responsibleUserId") || Object.prototype.hasOwnProperty.call(request.body, "attorneyId");
+  const responsibleChange = Object.prototype.hasOwnProperty.call(request.body, "responsibleUserId") || Object.prototype.hasOwnProperty.call(request.body, "responsibleUserIds");
+  const attorneyChange = Object.prototype.hasOwnProperty.call(request.body, "attorneyId");
+  const assignmentChange = responsibleChange || attorneyChange;
   if (assignmentChange && !auth.permissions.includes("case.update")) throw forbidden("Você não pode reatribuir responsáveis.");
   const result = await withTenant(auth.tenantId, async (tx) => {
-    const existing = await tx.legalCase.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...caseAssignmentFilter(auth) } });
+    const existing = await tx.legalCase.findFirst({ where: { tenantId: auth.tenantId, id: String(request.params.id), deletedAt: null, ...caseAssignmentFilter(auth) }, include: { assignments: true } });
     if (!existing) throw notFound();
     assertBranch(auth, existing.branchId);
-    const { responsibleUserId, attorneyId, ...caseData } = input;
+    const { responsibleUserId, responsibleUserIds, attorneyId, ...caseData } = input;
     const updated = await tx.legalCase.update({ where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } }, data: { ...caseData, processNumberSearch: input.processNumber ? normalizeSearch(input.processNumber).replace(/\s/g, "") : undefined, lastProgressAt: input.lastProgress ? new Date() : undefined } });
     if (assignmentChange) {
+      const ownerIds = responsibleChange
+        ? [...new Set(responsibleUserIds ?? (responsibleUserId ? [responsibleUserId] : []))]
+        : existing.assignments.filter((entry) => entry.type === "INTERNAL_OWNER").map((entry) => entry.userId);
+      const attorneyIds = attorneyChange
+        ? (attorneyId ? [attorneyId] : [])
+        : existing.assignments.filter((entry) => entry.type === "ATTORNEY").map((entry) => entry.userId);
       const assignments = [
-        responsibleUserId ? { userId: responsibleUserId, type: "INTERNAL_OWNER" as const, isPrimary: true } : null,
-        attorneyId ? { userId: attorneyId, type: "ATTORNEY" as const, isPrimary: true } : null,
-      ].filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+        ...ownerIds.map((userId, index) => ({ userId, type: "INTERNAL_OWNER" as const, isPrimary: index === 0 })),
+        ...attorneyIds.map((userId, index) => ({ userId, type: "ATTORNEY" as const, isPrimary: index === 0 })),
+      ];
+      if (!assignments.length) throw new AppError(422, "Responsável obrigatório", "O processo deve permanecer associado a pelo menos um responsável.");
       for (const assignment of assignments) {
         const eligible = await tx.user.findFirst({ where: { tenantId: auth.tenantId, id: assignment.userId, status: "ACTIVE", OR: [{ hasAllBranches: true }, { branchAccesses: { some: { branchId: existing.branchId } } }] } });
         if (!eligible) throw forbidden("O responsável selecionado não possui acesso à filial do processo.");

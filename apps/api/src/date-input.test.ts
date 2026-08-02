@@ -85,7 +85,7 @@ describe("#2 origem do atendimento como lista fechada", () => {
 });
 
 describe("#6 número do processo e parte contrária separados do tipo/categoria", () => {
-  const baseCase = { branchId: ids.branchId, legalAreaId: ids.legalAreaId, clientId: ids.clientId, entryDate: "2026-08-01" };
+  const baseCase = { branchId: ids.branchId, legalAreaId: ids.legalAreaId, clientId: ids.clientId, entryDate: "2026-08-01", responsibleUserIds: [ids.responsibleUserId] };
   it("aceita número e parte contrária como campos próprios", () => {
     const parsed = caseCreateSchema.parse({ ...baseCase, caseType: "Reclamação trabalhista", processNumber: "0001234-56.2026.5.02.0001", opposingParty: "Empresa X Ltda" });
     expect(parsed.processNumber).toBe("0001234-56.2026.5.02.0001");
@@ -96,5 +96,10 @@ describe("#6 número do processo e parte contrária separados do tipo/categoria"
     const parsed = caseCreateSchema.parse({ ...baseCase, caseType: "Cível" });
     expect(parsed.processNumber).toBeUndefined();
     expect(parsed.opposingParty).toBeUndefined();
+  });
+  it("aceita Carla e Rodolfo como responsáveis conjuntos", () => {
+    const secondResponsible = "66666666-6666-4666-8666-666666666666";
+    const parsed = caseCreateSchema.parse({ ...baseCase, responsibleUserIds: [ids.responsibleUserId, secondResponsible], caseType: "Cível" });
+    expect(parsed.responsibleUserIds).toEqual([ids.responsibleUserId, secondResponsible]);
   });
 });

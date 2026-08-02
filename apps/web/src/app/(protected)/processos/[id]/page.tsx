@@ -15,6 +15,7 @@ import { userSelectOptions } from "@/lib/user-options";
 
 interface CaseDetail {
   id: string;
+  caseName?: string;
   caseType: string;
   processNumber?: string;
   opposingParty?: string;
@@ -66,8 +67,8 @@ export default async function CaseDetailPage({
     <>
       <PageHeader
         eyebrow={`${item.legalArea.name} · ${item.branch.name}`}
-        title={item.processNumber ?? item.caseType}
-        description={item.parties.map((x) => x.client.name).join(", ")}
+        title={item.caseName ?? item.processNumber ?? item.caseType}
+        description={[item.processNumber, item.parties.map((x) => x.client.name).join(", ")].filter(Boolean).join(" · ")}
         action={canUpdate ?
           <CreatePanel
             title="Atualizar processo"
@@ -75,6 +76,16 @@ export default async function CaseDetailPage({
             method="PATCH"
             buttonLabel="Atualizar processo"
             fields={[
+              {
+                name: "caseName",
+                label: "Nome do processo",
+                defaultValue: item.caseName,
+              },
+              {
+                name: "caseType",
+                label: "Tipo / classificação",
+                defaultValue: item.caseType,
+              },
               {
                 name: "processNumber",
                 label: "Número do processo",
@@ -95,7 +106,7 @@ export default async function CaseDetailPage({
               { name: "hearingAt", label: "Data da audiência", type: "date", defaultValue: item.hearingAt?.slice(0, 10) },
               { name: "appealDueAt", label: "Prazo de recurso", type: "date", defaultValue: item.appealDueAt?.slice(0, 10) },
               ...(canReassign ? [
-                { name: "responsibleUserId", label: "Responsável interno", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "INTERNAL_OWNER")?.user.id, options: userSelectOptions(lookups.users) },
+                { name: "responsibleUserIds", label: "Responsáveis internos", type: "multiselect" as const, required: true, defaultValue: item.assignments.filter((assignment) => assignment.type === "INTERNAL_OWNER").map((assignment) => assignment.user.id), options: userSelectOptions(lookups.users) },
                 { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: userSelectOptions(lookups.users, "ADVOGADO") },
               ] : []),
               {

@@ -70,6 +70,7 @@ lookupsRouter.get("/", requireAuth, async (request, response) => {
         },
         select: {
           id: true,
+          caseName: true,
           caseType: true,
           processNumber: true,
           parties: {
@@ -93,6 +94,7 @@ lookupsRouter.get("/", requireAuth, async (request, response) => {
         id: item.id,
         name:
           item.processNumber ??
+          item.caseName ??
           `${item.caseType} — ${item.parties[0]?.client.name ?? "Sem cliente"}`,
       })),
     };

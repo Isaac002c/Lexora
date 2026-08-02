@@ -23,7 +23,7 @@ const rolePermissions: Record<RoleCode, PermissionCode[]> = {
   GESTOR_FILIAL: [
     "dashboard.read", "client.read", "client.create", "client.update", "attendance.read", "attendance.create",
     "attendance.update", "attendance.convert", "case.read", "case.create", "case.update", "deadline.read",
-    "deadline.manage", "document.read", "document.upload", "checklist.manage", "finance.read", "report.read", "audit.read",
+    "deadline.manage", "deadline.approve", "document.read", "document.upload", "checklist.manage", "finance.read", "report.read", "audit.read",
     "client.delete", "client.restore", "client.export", "client.history", "attendance.delete", "attendance.restore",
     "attendance.export", "attendance.history", "case.delete", "case.restore", "case.export", "case.history",
     "deadline.delete", "deadline.restore", "deadline.export", "deadline.history", "document.delete", "document.restore",
@@ -37,7 +37,7 @@ const rolePermissions: Record<RoleCode, PermissionCode[]> = {
     "attendance.update", "attendance.convert", "case.read", "case.create", "deadline.read", "document.read", "document.upload",
     "client.delete", "client.restore", "client.export", "client.history", "attendance.delete", "attendance.restore",
     "attendance.export", "attendance.history", "case.history", "document.delete", "document.restore", "document.history",
-    "hearing.read", "hearing.create", "hearing.update", "task.read", "task.create", "calendar.read", "calendar.create", "calendar.update",
+    "hearing.read", "hearing.create", "hearing.update", "task.read", "task.create", "calendar.read", "calendar.create", "calendar.update", "checklist.manage",
   ],
   ADVOGADO: [
     "dashboard.read", "client.read", "attendance.read", "case.read", "case.update_assigned", "deadline.read",

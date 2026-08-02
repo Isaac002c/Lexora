@@ -1,12 +1,98 @@
+import { clientChecklistCreateSchema, clientChecklistItemUpdateSchema } from "@chronostek/contracts";
 import { withTenant } from "@chronostek/database";
 import { Router } from "express";
 import { z } from "zod";
 import { notFound } from "../../lib/app-error.js";
-import { allowedBranches, checklistAttorneyFilter } from "../../lib/tenant.js";
+import { allowedBranches, checklistAttorneyFilter, clientAttorneyFilter } from "../../lib/tenant.js";
 import { requireAuth, requirePermission } from "../auth/auth.middleware.js";
 
 export const checklistsRouter = Router();
 const templateSchema = z.object({ name: z.string().trim().min(2).max(160), legalAreaId: z.string().uuid(), caseType: z.string().trim().max(160).optional(), isActive: z.boolean().default(true), items: z.array(z.object({ title: z.string().trim().min(2).max(200), description: z.string().trim().max(1000).optional(), isRequired: z.boolean().default(true) })).min(1).max(100) });
+
+checklistsRouter.get("/clients/:clientId", requireAuth, requirePermission("client.read"), async (request, response) => {
+  const auth = request.auth!;
+  const branches = allowedBranches(auth);
+  const data = await withTenant(auth.tenantId, async (tx) => {
+    const client = await tx.client.findFirst({
+      where: {
+        tenantId: auth.tenantId,
+        id: String(request.params.clientId),
+        deletedAt: null,
+        ...(branches ? { primaryBranchId: { in: branches } } : {}),
+        ...clientAttorneyFilter(auth),
+      },
+      select: { id: true },
+    });
+    if (!client) throw notFound();
+    const items = await tx.clientChecklist.findMany({
+      where: { tenantId: auth.tenantId, clientId: client.id },
+      include: { items: { orderBy: { position: "asc" } } },
+      orderBy: { createdAt: "asc" },
+    });
+    return { items };
+  });
+  response.json(data);
+});
+
+checklistsRouter.post("/clients/:clientId", requireAuth, requirePermission("checklist.manage"), async (request, response) => {
+  const auth = request.auth!;
+  const input = clientChecklistCreateSchema.parse(request.body);
+  const branches = allowedBranches(auth);
+  const checklist = await withTenant(auth.tenantId, async (tx) => {
+    const client = await tx.client.findFirst({
+      where: {
+        tenantId: auth.tenantId,
+        id: String(request.params.clientId),
+        deletedAt: null,
+        ...(branches ? { primaryBranchId: { in: branches } } : {}),
+        ...clientAttorneyFilter(auth),
+      },
+      select: { id: true, primaryBranchId: true },
+    });
+    if (!client) throw notFound();
+    const item = await tx.clientChecklist.create({
+      data: {
+        tenantId: auth.tenantId,
+        clientId: client.id,
+        name: input.name,
+        items: {
+          create: input.items.map((entry, position) => ({
+            tenantId: auth.tenantId,
+            ...entry,
+            position,
+          })),
+        },
+      },
+    });
+    await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, branchId: client.primaryBranchId, module: "CHECKLISTS", entityType: "CLIENT", entityId: client.id, action: "CLIENT_CHECKLIST_CREATED", description: `Checklist ${item.name} criado no cliente` } });
+    return item;
+  });
+  response.status(201).json({ id: checklist.id });
+});
+
+checklistsRouter.patch("/client-items/:id", requireAuth, requirePermission("checklist.manage"), async (request, response) => {
+  const auth = request.auth!;
+  const input = clientChecklistItemUpdateSchema.parse(request.body);
+  const branches = allowedBranches(auth);
+  const item = await withTenant(auth.tenantId, async (tx) => {
+    const existing = await tx.clientChecklistItem.findFirst({
+      where: {
+        tenantId: auth.tenantId,
+        id: String(request.params.id),
+        checklist: { client: { deletedAt: null, ...(branches ? { primaryBranchId: { in: branches } } : {}), ...clientAttorneyFilter(auth) } },
+      },
+      include: { checklist: { select: { clientId: true, client: { select: { primaryBranchId: true } } } } },
+    });
+    if (!existing) throw notFound();
+    const updated = await tx.clientChecklistItem.update({
+      where: { tenantId_id: { tenantId: auth.tenantId, id: existing.id } },
+      data: { ...input, updatedById: auth.userId, receivedAt: input.status === "RECEBIDO" ? existing.receivedAt ?? new Date() : existing.receivedAt },
+    });
+    await tx.auditLog.create({ data: { tenantId: auth.tenantId, actorUserId: auth.userId, branchId: existing.checklist.client.primaryBranchId, module: "CHECKLISTS", entityType: "CLIENT", entityId: existing.checklist.clientId, action: "CLIENT_CHECKLIST_UPDATED", description: `Item ${updated.title} atualizado para ${updated.status}` } });
+    return updated;
+  });
+  response.json(item);
+});
 
 checklistsRouter.get(
   "/templates",
