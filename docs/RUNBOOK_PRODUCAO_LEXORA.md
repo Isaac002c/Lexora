@@ -59,13 +59,17 @@ sh backup.sh                                   # 1. backup ANTES (obrigatório)
 git pull --ff-only origin main                 # 2. código
 cd infra/deploy
 DC="docker compose -p lexora -f compose.production.yaml -f compose.override.local.yaml"
-$DC build api                                  # 3. imagem
+$DC build api migrate                          # 3. imagens da API e do migrador
 $DC run --rm migrate                           # 4. migrations (antes da API nova)
 $DC up -d --no-deps --force-recreate api       # 5. troca SÓ a API (execute como passo separado)
 $DC ps && curl -s http://127.0.0.1:3333/health # 6. validar
 ```
 
 - Frontend: push em `main` → **deploy automático na Vercel** (confirmar no painel).
+- ⚠️ **Sempre reconstrua `api` e `migrate`:** os serviços usam alvos/imagens distintos.
+  Construir apenas `api` pode deixar o migrador antigo e produzir um falso
+  “No pending migrations to apply”. Antes de continuar, a saída do Prisma deve
+  mostrar a quantidade esperada de migrations.
 - ⚠️ `docker compose run` **consome stdin**: em scripts/heredoc, use `run -T --rm migrate`
   ou execute os passos separadamente (incidente real: o restart não executou por isso).
 - Nunca `prisma db push` em produção; sempre migrations.
