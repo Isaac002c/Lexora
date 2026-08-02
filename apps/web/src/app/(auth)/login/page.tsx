@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Image from "next/image";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { getCurrentUser } from "@/lib/server-api";
@@ -6,14 +7,8 @@ import { LoginForm } from "./login-form";
 
 function TelunSignature() {
   return (
-    <div className="flex items-center gap-4" aria-label="Telun">
-      <svg aria-hidden="true" viewBox="0 0 30 38" className="h-8 w-6 fill-none">
-        <path d="M15 2v33" stroke="#b07cff" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M9 6c0 11.5 1.8 21 6 29" stroke="#8a5cff" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M21 6c0 11.5-1.8 21-6 29" stroke="#e565b8" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M4 11c0 10 3.4 17.5 11 24" stroke="#9566ff" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M26 11c0 10-3.4 17.5-11 24" stroke="#ff788f" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
+    <div className="flex items-center gap-3" aria-label="Telun">
+      <Image src="/telun-logo.jpeg" alt="" width={40} height={40} priority className="h-10 w-10 object-cover" />
       <span className="text-[17px] font-semibold tracking-[0.34em] text-white">TELU<span className="text-[#ff8f8f]">N</span></span>
     </div>
   );
