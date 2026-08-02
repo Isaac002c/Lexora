@@ -24,6 +24,10 @@ function key(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+function userLabel(user: Lookups["users"][number]) {
+  return user.email ? `${user.name} · ${user.email}` : `${user.name} · usuário`;
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -102,9 +106,12 @@ export default async function CalendarPage({
     },
     {
       name: "ownerUserId",
-      label: "Responsável",
+      label: "Usuário responsável",
       type: "select" as const,
-      options: lookups.users.map((x) => ({ value: x.id, label: x.name })),
+      options: lookups.users.map((user) => ({
+        value: user.id,
+        label: userLabel(user),
+      })),
     },
     { name: "location", label: "Local" },
     { name: "meetingLink", label: "Link" },
@@ -200,7 +207,7 @@ export default async function CalendarPage({
           <option value="">Todos os responsáveis</option>
           {lookups.users.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.name}
+              {userLabel(item)}
             </option>
           ))}
         </select>

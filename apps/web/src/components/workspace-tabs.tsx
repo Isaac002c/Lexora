@@ -321,7 +321,7 @@ function resolveTab(pathname: string, route: string): WorkspaceTab {
         route,
         icon: definition.icon,
         permission: definition.permission,
-        pinned: pathname === "/dashboard",
+        pinned: false,
         dirty: false,
       };
   }
@@ -393,11 +393,16 @@ export function WorkspaceTabsProvider({
         scrollLeft?: number;
       };
       restored = (saved.tabs ?? [])
-        .filter((tab) => tab.route?.startsWith("/") && isAllowed(tab, user))
+        .filter(
+          (tab) =>
+            tab.key !== "dashboard" &&
+            tab.route?.startsWith("/") &&
+            isAllowed(tab, user),
+        )
         .map((tab) => ({ ...tab, dirty: false }));
       setClosedTabs(
         (saved.closedTabs ?? [])
-          .filter((tab) => isAllowed(tab, user))
+          .filter((tab) => tab.key !== "dashboard" && isAllowed(tab, user))
           .slice(0, 20),
       );
       requestAnimationFrame(() => {
