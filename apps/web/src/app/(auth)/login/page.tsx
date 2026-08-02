@@ -49,9 +49,9 @@ export default async function LoginPage() {
             <ThemeToggle />
           </div>
 
-          <div className="w-full max-w-[380px]">
+          <div className="w-full max-w-[320px]">
             <div className="mb-9 lg:hidden"><TelunSignature /></div>
-            <h2 className="text-xl font-semibold tracking-[-0.025em] text-white">Acessar o sistema</h2>
+            <h2 className="text-lg font-semibold tracking-[-0.025em] text-white">Acessar o sistema</h2>
             <p className="mt-1.5 text-xs text-[#898397]">Entre com suas credenciais para continuar.</p>
             <div className="mt-7"><LoginForm /></div>
             <a href="/recuperar-acesso" className="mx-auto mt-5 block w-fit text-[11px] text-[#827b91] transition-colors hover:text-[#b883ff]">
