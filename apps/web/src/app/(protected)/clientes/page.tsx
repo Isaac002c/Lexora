@@ -9,6 +9,7 @@ import { Pagination } from "@/components/pagination";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
 import { getCurrentUser } from "@/lib/server-api";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface ClientList {
   items: Array<{
@@ -84,10 +85,7 @@ export default async function ClientsPage({
                 name: "responsibleUserId",
                 label: "Responsável",
                 type: "select",
-                options: lookups.users.map((item) => ({
-                  value: item.id,
-                  label: item.name,
-                })),
+                options: userSelectOptions(lookups.users),
               },
               { name: "email", label: "E-mail", type: "email" },
               { name: "phone", label: "Telefone" },

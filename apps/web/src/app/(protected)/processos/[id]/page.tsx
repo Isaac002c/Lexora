@@ -11,6 +11,7 @@ import { Timeline, type TimelineItem } from "@/features/historico/components/tim
 import { ChecklistItemControl } from "@/components/checklist-item-control";
 import { deadlineTypeLabel } from "@/lib/deadline-labels";
 import { deadlineInternalState, internalDueAt, INTERNAL_STATE_LABELS } from "@chronostek/contracts";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface CaseDetail {
   id: string;
@@ -94,8 +95,8 @@ export default async function CaseDetailPage({
               { name: "hearingAt", label: "Data da audiência", type: "date", defaultValue: item.hearingAt?.slice(0, 10) },
               { name: "appealDueAt", label: "Prazo de recurso", type: "date", defaultValue: item.appealDueAt?.slice(0, 10) },
               ...(canReassign ? [
-                { name: "responsibleUserId", label: "Responsável interno", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "INTERNAL_OWNER")?.user.id, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
-                { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: lookups.users.map((attorney) => ({ value: attorney.id, label: attorney.name })) },
+                { name: "responsibleUserId", label: "Responsável interno", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "INTERNAL_OWNER")?.user.id, options: userSelectOptions(lookups.users) },
+                { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: userSelectOptions(lookups.users, "ADVOGADO") },
               ] : []),
               {
                 name: "status",
@@ -200,7 +201,7 @@ export default async function CaseDetailPage({
                   { name: "title", label: "Título", required: true },
                   { name: "type", label: "Tipo", type: "select", required: true, options: deadlineTypes.map((deadlineType) => ({ value: deadlineType, label: deadlineTypeLabel(deadlineType) })) },
                   { name: "dueAt", label: "Vencimento", type: "date", required: true },
-                  { name: "responsibleUserId", label: "Responsável", type: "select", required: true, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
+                  { name: "responsibleUserId", label: "Responsável", type: "select", required: true, options: userSelectOptions(lookups.users) },
                   { name: "priority", label: "Prioridade", type: "select", defaultValue: "NORMAL", options: ["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => ({ value: priority, label: priority })) },
                   { name: "notes", label: "Observação", type: "textarea" },
                 ]}

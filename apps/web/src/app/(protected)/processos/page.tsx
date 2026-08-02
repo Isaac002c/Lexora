@@ -10,6 +10,7 @@ import { Pagination } from "@/components/pagination";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
 import { getCurrentUser } from "@/lib/server-api";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface CaseList {
   items: Array<{
@@ -102,19 +103,13 @@ export default async function CasesPage({
                 name: "responsibleUserId",
                 label: "Responsável interno",
                 type: "select",
-                options: lookups.users.map((x) => ({
-                  value: x.id,
-                  label: x.name,
-                })),
+                options: userSelectOptions(lookups.users),
               },
               {
                 name: "attorneyId",
                 label: "Advogado",
                 type: "select",
-                options: lookups.users.map((x) => ({
-                  value: x.id,
-                  label: x.name,
-                })),
+                options: userSelectOptions(lookups.users, "ADVOGADO"),
               },
               {
                 name: "entryDate",

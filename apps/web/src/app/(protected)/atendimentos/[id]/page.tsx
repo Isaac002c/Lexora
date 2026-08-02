@@ -10,6 +10,7 @@ import { fetchData, type Lookups } from "@/lib/page-data";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
 import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface AttendanceDetail {
   id: string;
@@ -99,10 +100,7 @@ export default async function AttendanceDetailPage({
                     label: "Advogado",
                     type: "select",
                     defaultValue: item.attorney?.id,
-                    options: lookups.users.map((attorney) => ({
-                      value: attorney.id,
-                      label: attorney.name,
-                    })),
+                    options: userSelectOptions(lookups.users, "ADVOGADO"),
                   },
                   {
                     name: "phone",

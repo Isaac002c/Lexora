@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { formatMoney } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
+import { userOptionLabel } from "@/lib/user-options";
 
 interface ReportRow { name: string; count: number; amount?: string }
 interface Report {
@@ -88,7 +89,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         <input name="to" type="date" defaultValue={query.to} className="h-10 rounded-md border bg-background px-3 text-sm" aria-label="Data final" />
         <select name="branchId" defaultValue={query.branchId} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todas as filiais</option>{lookups.branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
         <select name="legalAreaId" defaultValue={query.legalAreaId} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todas as áreas</option>{lookups.legalAreas.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
-        <select name="responsibleId" defaultValue={query.responsibleId} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todos os responsáveis</option>{lookups.users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+        <select name="responsibleId" defaultValue={query.responsibleId} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todos os responsáveis</option>{lookups.users.map((item) => <option key={item.id} value={item.id}>{userOptionLabel(item)}</option>)}</select>
       </SearchForm>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map(([label, value, Icon]) => <Card key={label}><CardHeader className="flex flex-row items-center justify-between pb-2"><CardTitle className="text-muted-foreground text-sm">{label}</CardTitle><Icon className="h-4 w-4 text-cyan-500" /></CardHeader><CardContent className="text-2xl font-semibold">{value}</CardContent></Card>)}

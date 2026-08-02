@@ -10,6 +10,7 @@ import { formatDate, formatDay, formatMoney } from "@/lib/format";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface ClientDetail {
   id: string;
@@ -59,7 +60,7 @@ export default async function ClientDetailPage({
         eyebrow={item.primaryBranch.name}
         title={item.name}
         description={`${item.email ?? "Sem e-mail"} · ${item.phone ?? "Sem telefone"}`}
-        action={<div className="flex flex-wrap gap-2"><StatusBadge value={item.status} />{canUpdate && <><CreatePanel title={`Editar ${item.name}`} endpoint={`/api/v1/clients/${item.id}`} method="PATCH" buttonLabel="Editar cliente" fields={[{ name: "name", label: "Nome completo / razão social", required: true, defaultValue: item.name }, { name: "type", label: "Tipo", type: "select", required: true, defaultValue: item.type, options: [{ value: "INDIVIDUAL", label: "Pessoa física" }, { value: "COMPANY", label: "Pessoa jurídica" }] }, { name: "primaryBranchId", label: "Filial principal", type: "select", required: true, defaultValue: item.primaryBranch.id, options: lookups.branches.map((branch) => ({ value: branch.id, label: branch.name })) }, { name: "responsibleUserId", label: "Responsável interno", type: "select", defaultValue: item.responsibleUser?.id, options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) }, { name: "email", label: "E-mail", type: "email", defaultValue: item.email }, { name: "phone", label: "Telefone", defaultValue: item.phone }, { name: "birthDate", label: "Nascimento", type: "date", defaultValue: item.birthDate?.slice(0, 10) }, { name: "notes", label: "Observações", type: "textarea", defaultValue: item.notes }, { name: "status", label: "Status", type: "select", required: true, defaultValue: item.status, options: [{ value: "ACTIVE", label: "Ativo" }, { value: "INACTIVE", label: "Inativo" }, { value: "ARCHIVED", label: "Arquivado" }] }]} />{item.status !== "ARCHIVED" && <ApiActionButton method="PATCH" endpoint={`/api/v1/clients/${item.id}`} body={{ status: "ARCHIVED" }} label="Arquivar" confirmMessage="Arquivar este cliente?" variant="ghost" />}</>}</div>}
+        action={<div className="flex flex-wrap gap-2"><StatusBadge value={item.status} />{canUpdate && <><CreatePanel title={`Editar ${item.name}`} endpoint={`/api/v1/clients/${item.id}`} method="PATCH" buttonLabel="Editar cliente" fields={[{ name: "name", label: "Nome completo / razão social", required: true, defaultValue: item.name }, { name: "type", label: "Tipo", type: "select", required: true, defaultValue: item.type, options: [{ value: "INDIVIDUAL", label: "Pessoa física" }, { value: "COMPANY", label: "Pessoa jurídica" }] }, { name: "primaryBranchId", label: "Filial principal", type: "select", required: true, defaultValue: item.primaryBranch.id, options: lookups.branches.map((branch) => ({ value: branch.id, label: branch.name })) }, { name: "responsibleUserId", label: "Responsável interno", type: "select", defaultValue: item.responsibleUser?.id, options: userSelectOptions(lookups.users) }, { name: "email", label: "E-mail", type: "email", defaultValue: item.email }, { name: "phone", label: "Telefone", defaultValue: item.phone }, { name: "birthDate", label: "Nascimento", type: "date", defaultValue: item.birthDate?.slice(0, 10) }, { name: "notes", label: "Observações", type: "textarea", defaultValue: item.notes }, { name: "status", label: "Status", type: "select", required: true, defaultValue: item.status, options: [{ value: "ACTIVE", label: "Ativo" }, { value: "INACTIVE", label: "Inativo" }, { value: "ARCHIVED", label: "Arquivado" }] }]} />{item.status !== "ARCHIVED" && <ApiActionButton method="PATCH" endpoint={`/api/v1/clients/${item.id}`} body={{ status: "ARCHIVED" }} label="Arquivar" confirmMessage="Arquivar este cliente?" variant="ghost" />}</>}</div>}
       />
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <Card>
@@ -101,8 +102,8 @@ export default async function ClientDetailPage({
               { name: "opposingParty", label: "Parte contrária" },
               { name: "caseType", label: "Tipo / categoria", placeholder: "Ex.: Reclamação trabalhista" },
               { name: "legalAreaId", label: "Área jurídica", type: "select", required: true, options: lookups.legalAreas.map((area) => ({ value: area.id, label: area.name })) },
-              { name: "responsibleUserId", label: "Responsável interno", type: "select", options: lookups.users.map((responsible) => ({ value: responsible.id, label: responsible.name })) },
-              { name: "attorneyId", label: "Advogado", type: "select", options: lookups.users.map((attorney) => ({ value: attorney.id, label: attorney.name })) },
+              { name: "responsibleUserId", label: "Responsável interno", type: "select", options: userSelectOptions(lookups.users) },
+              { name: "attorneyId", label: "Advogado", type: "select", options: userSelectOptions(lookups.users, "ADVOGADO") },
               { name: "entryDate", label: "Data de entrada", type: "date", required: true },
               { name: "notes", label: "Observações", type: "textarea" },
             ]}

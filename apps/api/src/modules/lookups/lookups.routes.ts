@@ -41,7 +41,12 @@ lookupsRouter.get("/", requireAuth, async (request, response) => {
               }
             : {}),
         },
-        select: { id: true, name: true, email: true },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          roles: { select: { role: { select: { code: true } } } },
+        },
         orderBy: { name: "asc" },
       }),
       tx.client.findMany({
@@ -79,7 +84,10 @@ lookupsRouter.get("/", requireAuth, async (request, response) => {
     return {
       branches,
       legalAreas,
-      users,
+      users: users.map(({ roles, ...user }) => ({
+        ...user,
+        roleCodes: roles.map(({ role }) => role.code),
+      })),
       clients,
       cases: cases.map((item) => ({
         id: item.id,

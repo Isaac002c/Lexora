@@ -8,6 +8,7 @@ import { HistoryDetails, type HistoryRecord } from "@/features/historico/compone
 import { formatDate } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { getCurrentUser } from "@/lib/server-api";
+import { userOptionLabel } from "@/lib/user-options";
 
 interface HistoryList {
   items: HistoryRecord[];
@@ -32,7 +33,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Prom
     <SearchForm defaultValue={query.search} placeholder="Buscar por usuário, ação ou descrição...">
       <input type="date" name="from" defaultValue={query.from} aria-label="Data inicial" className="h-10 rounded-md border bg-background px-3 text-sm" />
       <input type="date" name="to" defaultValue={query.to} aria-label="Data final" className="h-10 rounded-md border bg-background px-3 text-sm" />
-      <select name="actorUserId" defaultValue={query.actorUserId} aria-label="Usuário" className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todos os usuários</option>{lookups.users.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select>
+      <select name="actorUserId" defaultValue={query.actorUserId} aria-label="Usuário" className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todos os usuários</option>{lookups.users.map((item) => <option key={item.id} value={item.id}>{userOptionLabel(item)}</option>)}</select>
       <select name="module" defaultValue={query.module} aria-label="Módulo" className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todos os módulos</option>{data.facets.modules.map((item) => <option key={item} value={item}>{item}</option>)}</select>
       <select name="action" defaultValue={query.action} aria-label="Ação" className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todas as ações</option>{data.facets.actions.map((item) => <option key={item} value={item}>{item}</option>)}</select>
       <select name="entityType" defaultValue={query.entityType} aria-label="Entidade" className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Todas as entidades</option>{data.facets.entityTypes.map((item) => <option key={item} value={item}>{item}</option>)}</select>

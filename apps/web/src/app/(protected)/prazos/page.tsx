@@ -16,6 +16,7 @@ import {
   INTERNAL_STATE_LABELS,
 } from "@chronostek/contracts";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
+import { userOptionLabel, userSelectOptions } from "@/lib/user-options";
 import { getCurrentUser } from "@/lib/server-api";
 
 interface DeadlineList {
@@ -136,10 +137,7 @@ export default async function DeadlinesPage({
       label: "Responsável",
       type: "select" as const,
       required: true,
-      options: lookups.users.map((item) => ({
-        value: item.id,
-        label: item.name,
-      })),
+      options: userSelectOptions(lookups.users),
     },
     {
       name: "dueAt",
@@ -197,7 +195,7 @@ export default async function DeadlinesPage({
           <option value="">Todas as filiais</option>
           {lookups.branches.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.name}
+              {userOptionLabel(item)}
             </option>
           ))}
         </select>

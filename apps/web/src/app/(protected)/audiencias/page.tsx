@@ -10,6 +10,7 @@ import { ModuleNav } from "@/features/shared/components/module-nav";
 import { formatDate } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { getCurrentUser } from "@/lib/server-api";
+import { userSelectOptions } from "@/lib/user-options";
 
 interface HearingList {
   items: Array<{
@@ -107,13 +108,13 @@ export default async function HearingsPage({
       name: "attorneyId",
       label: "Advogado",
       type: "select" as const,
-      options: lookups.users.map((x) => ({ value: x.id, label: x.name })),
+      options: userSelectOptions(lookups.users, "ADVOGADO"),
     },
     {
       name: "assistantId",
       label: "Assistente",
       type: "select" as const,
-      options: lookups.users.map((x) => ({ value: x.id, label: x.name })),
+      options: userSelectOptions(lookups.users),
     },
     { name: "location", label: "Local" },
     { name: "meetingLink", label: "Link" },

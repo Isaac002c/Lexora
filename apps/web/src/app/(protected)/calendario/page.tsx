@@ -6,6 +6,7 @@ import { SearchForm } from "@/components/search-form";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { getCurrentUser } from "@/lib/server-api";
+import { userOptionLabel, userSelectOptions } from "@/lib/user-options";
 
 interface CalendarList {
   items: Array<{
@@ -22,10 +23,6 @@ interface CalendarList {
 type Mode = "month" | "week" | "list";
 function key(date: Date) {
   return date.toISOString().slice(0, 10);
-}
-
-function userLabel(user: Lookups["users"][number]) {
-  return user.email ? `${user.name} · ${user.email}` : `${user.name} · usuário`;
 }
 
 export default async function CalendarPage({
@@ -108,10 +105,7 @@ export default async function CalendarPage({
       name: "ownerUserId",
       label: "Usuário responsável",
       type: "select" as const,
-      options: lookups.users.map((user) => ({
-        value: user.id,
-        label: userLabel(user),
-      })),
+      options: userSelectOptions(lookups.users),
     },
     { name: "location", label: "Local" },
     { name: "meetingLink", label: "Link" },
@@ -207,7 +201,7 @@ export default async function CalendarPage({
           <option value="">Todos os responsáveis</option>
           {lookups.users.map((item) => (
             <option key={item.id} value={item.id}>
-              {userLabel(item)}
+              {userOptionLabel(item)}
             </option>
           ))}
         </select>

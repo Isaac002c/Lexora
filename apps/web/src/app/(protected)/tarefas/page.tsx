@@ -10,6 +10,7 @@ import { ModuleNav } from "@/features/shared/components/module-nav";
 import { formatDate } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { getCurrentUser } from "@/lib/server-api";
+import { userOptionLabel, userSelectOptions } from "@/lib/user-options";
 
 interface TaskList {
   items: Array<{
@@ -63,7 +64,7 @@ export default async function TasksPage({
       label: "Responsável",
       type: "select" as const,
       required: true,
-      options: lookups.users.map((x) => ({ value: x.id, label: x.name })),
+      options: userSelectOptions(lookups.users),
     },
     {
       name: "branchId",
@@ -131,7 +132,7 @@ export default async function TasksPage({
           <option value="">Todos os responsáveis</option>
           {lookups.users.map((x) => (
             <option key={x.id} value={x.id}>
-              {x.name}
+              {userOptionLabel(x)}
             </option>
           ))}
         </select>

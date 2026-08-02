@@ -19,6 +19,7 @@ export interface LookupOption {
   id: string;
   name: string;
   email?: string;
+  roleCodes?: string[];
   code?: string;
   primaryBranchId?: string;
 }
