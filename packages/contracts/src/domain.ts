@@ -245,7 +245,7 @@ export const branchUpdateSchema = branchCreateSchema.partial().extend({ isActive
 export const userCreateSchema = z.object({
   name: z.string().trim().min(3).max(160),
   email: z.string().trim().email().transform((value) => value.toLowerCase()),
-  roleCode: z.enum(["ADMIN_GERAL", "GESTOR_FILIAL", "SECRETARIA", "ADVOGADO", "FINANCEIRO", "VISUALIZADOR"]),
+  roleCode: z.enum(["ADMIN_GERAL", "GESTOR_FILIAL", "SECRETARIA", "ADMINISTRATIVO", "ADVOGADO", "FINANCEIRO", "VISUALIZADOR"]),
   branchIds: z.preprocess((value) => typeof value === "string" ? [value] : value, z.array(z.string().uuid()).default([])),
   hasAllBranches: z.boolean().default(false),
   temporaryPassword: z.string().min(12).max(128),
@@ -253,7 +253,7 @@ export const userCreateSchema = z.object({
 export const userUpdateSchema = z.object({
   name: z.string().trim().min(3).max(160).optional(),
   email: z.string().trim().email().transform((value) => value.toLowerCase()).optional(),
-  roleCode: z.enum(["ADMIN_GERAL", "GESTOR_FILIAL", "SECRETARIA", "ADVOGADO", "FINANCEIRO", "VISUALIZADOR"]).optional(),
+  roleCode: z.enum(["ADMIN_GERAL", "GESTOR_FILIAL", "SECRETARIA", "ADMINISTRATIVO", "ADVOGADO", "FINANCEIRO", "VISUALIZADOR"]).optional(),
   branchIds: z.array(z.string().uuid()).optional(),
   hasAllBranches: z.boolean().optional(),
   status: z.enum(["INVITED", "ACTIVE", "SUSPENDED", "ARCHIVED"]).optional(),

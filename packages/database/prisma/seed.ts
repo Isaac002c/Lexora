@@ -39,6 +39,12 @@ const rolePermissions: Record<RoleCode, PermissionCode[]> = {
     "attendance.export", "attendance.history", "case.history", "document.delete", "document.restore", "document.history",
     "hearing.read", "hearing.create", "hearing.update", "task.read", "task.create", "calendar.read", "calendar.create", "calendar.update", "checklist.manage",
   ],
+  ADMINISTRATIVO: [
+    "dashboard.read", "client.read", "client.create", "client.update", "attendance.read", "attendance.create",
+    "attendance.update", "case.read", "case.create", "deadline.read", "document.read", "document.upload",
+    "checklist.manage", "hearing.read", "hearing.create", "hearing.update", "task.read", "task.create", "task.update",
+    "calendar.read", "calendar.create", "calendar.update",
+  ],
   ADVOGADO: [
     "dashboard.read", "client.read", "attendance.read", "case.read", "case.update_assigned", "deadline.read",
     "deadline.manage", "document.read", "document.upload", "checklist.manage",
@@ -56,6 +62,7 @@ const roleNames: Record<RoleCode, string> = {
   ADMIN_GERAL: "Administrador geral",
   GESTOR_FILIAL: "Gestor de filial",
   SECRETARIA: "Secretaria",
+  ADMINISTRATIVO: "Administrativo",
   ADVOGADO: "Advogado",
   FINANCEIRO: "Financeiro",
   VISUALIZADOR: "Visualizador",

@@ -2,6 +2,7 @@ export const roles = [
   "ADMIN_GERAL",
   "GESTOR_FILIAL",
   "SECRETARIA",
+  "ADMINISTRATIVO",
   "ADVOGADO",
   "FINANCEIRO",
   "VISUALIZADOR",

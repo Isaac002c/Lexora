@@ -33,6 +33,12 @@ const rolePermissions: Record<RoleCode, PermissionCode[]> = {
     "dashboard.read", "client.read", "client.create", "client.update", "attendance.read", "attendance.create",
     "attendance.update", "attendance.convert", "case.read", "case.create", "deadline.read", "document.read", "document.upload",
   ],
+  ADMINISTRATIVO: [
+    "dashboard.read", "client.read", "client.create", "client.update", "attendance.read", "attendance.create",
+    "attendance.update", "case.read", "case.create", "deadline.read", "document.read", "document.upload",
+    "checklist.manage", "hearing.read", "hearing.create", "hearing.update", "task.read", "task.create", "task.update",
+    "calendar.read", "calendar.create", "calendar.update",
+  ],
   ADVOGADO: [
     "dashboard.read", "client.read", "attendance.read", "case.read", "case.update_assigned", "deadline.read",
     "deadline.manage", "document.read", "document.upload", "checklist.manage",
@@ -43,7 +49,7 @@ const rolePermissions: Record<RoleCode, PermissionCode[]> = {
 
 const roleNames: Record<RoleCode, string> = {
   ADMIN_GERAL: "Administrador geral", GESTOR_FILIAL: "Gestor de filial", SECRETARIA: "Secretaria",
-  ADVOGADO: "Advogado", FINANCEIRO: "Financeiro", VISUALIZADOR: "Visualizador",
+  ADMINISTRATIVO: "Administrativo", ADVOGADO: "Advogado", FINANCEIRO: "Financeiro", VISUALIZADOR: "Visualizador",
 };
 
 const branchSeeds = [["MATRIZ", "Matriz"], ["NORTE", "Filial Norte"], ["SUL", "Filial Sul"], ["LESTE", "Filial Leste"]] as const;
