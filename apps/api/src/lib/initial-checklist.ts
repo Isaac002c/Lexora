@@ -28,16 +28,22 @@ export async function createInitialChecklist(
   const items =
     template && template.items.length
       ? template.items.map((item) => ({
-          tenantId,
           title: item.title,
           description: item.description,
           isRequired: item.isRequired,
           position: item.position,
         }))
-      : DEFAULT_CHECKLIST_ITEMS.map((title, position) => ({ tenantId, title, position }));
+      : DEFAULT_CHECKLIST_ITEMS.map((title, position) => ({ title, position }));
 
+  // Cria o checklist e, em seguida, os itens. Os itens são inseridos via createMany
+  // com tenantId/checklistId explícitos: a relação composta [tenantId, checklistId]
+  // faz o Prisma rejeitar tenantId num create aninhado (deriva do pai), então a
+  // inserção separada é a forma correta e evita o erro de argumento desconhecido.
   const checklist = await tx.caseChecklist.create({
-    data: { tenantId, caseId, templateId: template?.id, name, items: { create: items } },
+    data: { tenantId, caseId, templateId: template?.id, name },
+  });
+  await tx.checklistItem.createMany({
+    data: items.map((item) => ({ ...item, tenantId, checklistId: checklist.id })),
   });
   await tx.auditLog.create({
     data: {
