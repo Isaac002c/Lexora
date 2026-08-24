@@ -15,6 +15,7 @@ interface CalendarList {
     type: string;
     title: string;
     startsAt: string;
+    allDay: boolean;
     status: string;
     priority?: string;
     href: string;
@@ -116,6 +117,7 @@ export default async function CalendarPage({
     title: item.title,
     type: item.type,
     dueAt: item.startsAt,
+    allDay: item.allDay,
     color: item.status,
     client: { name: item.source },
   }));

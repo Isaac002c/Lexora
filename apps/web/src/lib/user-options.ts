@@ -11,9 +11,23 @@ export function userOptionLabel(user: UserLookupOption) {
 
 export function userSelectOptions(
   users: UserLookupOption[],
-  roleCode?: string,
+  roleCodes?: string | string[],
 ) {
+  const allowedRoleCodes = roleCodes
+    ? Array.isArray(roleCodes)
+      ? roleCodes
+      : [roleCodes]
+    : undefined;
+
   return users
-    .filter((user) => !roleCode || user.roleCodes?.includes(roleCode))
+    .filter(
+      (user) =>
+        !allowedRoleCodes ||
+        allowedRoleCodes.some((roleCode) => user.roleCodes?.includes(roleCode)),
+    )
     .map((user) => ({ value: user.id, label: userOptionLabel(user) }));
+}
+
+export function legalProfessionalSelectOptions(users: UserLookupOption[]) {
+  return userSelectOptions(users, ["ADVOGADO", "GESTOR_FILIAL"]);
 }

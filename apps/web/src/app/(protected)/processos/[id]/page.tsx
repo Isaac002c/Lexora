@@ -11,7 +11,7 @@ import { Timeline, type TimelineItem } from "@/features/historico/components/tim
 import { ChecklistItemControl } from "@/components/checklist-item-control";
 import { deadlineTypeLabel } from "@/lib/deadline-labels";
 import { deadlineInternalState, internalDueAt, INTERNAL_STATE_LABELS } from "@chronostek/contracts";
-import { userSelectOptions } from "@/lib/user-options";
+import { legalProfessionalSelectOptions, userSelectOptions } from "@/lib/user-options";
 
 interface CaseDetail {
   id: string;
@@ -107,7 +107,7 @@ export default async function CaseDetailPage({
               { name: "appealDueAt", label: "Prazo de recurso", type: "date", defaultValue: item.appealDueAt?.slice(0, 10) },
               ...(canReassign ? [
                 { name: "responsibleUserIds", label: "Responsáveis internos", type: "multiselect" as const, required: true, defaultValue: item.assignments.filter((assignment) => assignment.type === "INTERNAL_OWNER").map((assignment) => assignment.user.id), options: userSelectOptions(lookups.users) },
-                { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: userSelectOptions(lookups.users, "ADVOGADO") },
+                { name: "attorneyId", label: "Advogado responsável", type: "select" as const, defaultValue: item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user.id, options: legalProfessionalSelectOptions(lookups.users) },
               ] : []),
               {
                 name: "status",

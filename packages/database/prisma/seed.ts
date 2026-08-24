@@ -76,7 +76,7 @@ const branchSeeds = [
 ] as const;
 
 // Áreas iniciais conforme especificação do MVP Lexora.
-const legalAreaSeeds = ["Trabalhista", "Criminal", "Cível", "Juizado Cível", "Vara Cível", "Federal", "Administrativo"];
+const legalAreaSeeds = ["Trabalhista", "Criminal", "Cível", "Juizado Cível", "Vara Cível", "Federal", "Administrativo", "Previdenciário", "Família"];
 
 const userSeeds: Array<{ name: string; email: string; role: RoleCode; branch: number | "ALL" }> = [
   { name: "Douglas Almeida", email: "douglas@demo.chronostek.com.br", role: "ADMIN_GERAL", branch: "ALL" },

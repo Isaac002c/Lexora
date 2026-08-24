@@ -53,7 +53,7 @@ const roleNames: Record<RoleCode, string> = {
 };
 
 const branchSeeds = [["MATRIZ", "Matriz"], ["NORTE", "Filial Norte"], ["SUL", "Filial Sul"], ["LESTE", "Filial Leste"]] as const;
-const legalAreaSeeds = ["Trabalhista", "Criminal", "Cível", "Juizado Cível", "Vara Cível", "Federal", "Administrativo"];
+const legalAreaSeeds = ["Trabalhista", "Criminal", "Cível", "Juizado Cível", "Vara Cível", "Federal", "Administrativo", "Previdenciário", "Família"];
 const toCode = (v: string) => v.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase().replace(/[^A-Z0-9]+/g, "_");
 
 async function main() {

@@ -10,7 +10,7 @@ import { formatDate, formatDay, formatMoney } from "@/lib/format";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
-import { userSelectOptions } from "@/lib/user-options";
+import { legalProfessionalSelectOptions, userSelectOptions } from "@/lib/user-options";
 import { ClientDetailNav } from "@/features/clientes/components/client-detail-nav";
 
 interface ClientDetail {
@@ -107,7 +107,7 @@ export default async function ClientDetailPage({
               { name: "caseType", label: "Tipo / categoria", placeholder: "Ex.: Reclamação trabalhista" },
               { name: "legalAreaId", label: "Área jurídica", type: "select", required: true, options: lookups.legalAreas.map((area) => ({ value: area.id, label: area.name })) },
               { name: "responsibleUserIds", label: "Responsáveis internos", type: "multiselect", required: true, options: userSelectOptions(lookups.users) },
-              { name: "attorneyId", label: "Advogado", type: "select", options: userSelectOptions(lookups.users, "ADVOGADO") },
+              { name: "attorneyId", label: "Advogado", type: "select", options: legalProfessionalSelectOptions(lookups.users) },
               { name: "entryDate", label: "Data de entrada", type: "date", required: true },
               { name: "notes", label: "Observações", type: "textarea" },
             ]}

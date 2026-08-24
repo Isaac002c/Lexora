@@ -12,7 +12,7 @@ import { ModuleNav } from "@/features/shared/components/module-nav";
 import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
 import { getCurrentUser } from "@/lib/server-api";
-import { userSelectOptions } from "@/lib/user-options";
+import { legalProfessionalSelectOptions } from "@/lib/user-options";
 
 interface AttendanceList {
   items: Array<{
@@ -88,7 +88,7 @@ export default async function AttendancesPage({
                 name: "attorneyId",
                 label: "Advogado",
                 type: "select",
-                options: userSelectOptions(lookups.users, "ADVOGADO"),
+                options: legalProfessionalSelectOptions(lookups.users),
               },
               { name: "phone", label: "Telefone" },
               { name: "email", label: "E-mail", type: "email" },

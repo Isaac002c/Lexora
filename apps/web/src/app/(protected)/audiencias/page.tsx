@@ -7,10 +7,10 @@ import { SearchForm } from "@/components/search-form";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
 import { StatusBadge } from "@/components/status-badge";
 import { ModuleNav } from "@/features/shared/components/module-nav";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDay } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { getCurrentUser } from "@/lib/server-api";
-import { userSelectOptions } from "@/lib/user-options";
+import { legalProfessionalSelectOptions, userSelectOptions } from "@/lib/user-options";
 
 interface HearingList {
   items: Array<{
@@ -108,7 +108,7 @@ export default async function HearingsPage({
       name: "attorneyId",
       label: "Advogado",
       type: "select" as const,
-      options: userSelectOptions(lookups.users, "ADVOGADO"),
+      options: legalProfessionalSelectOptions(lookups.users),
     },
     {
       name: "assistantId",
@@ -181,7 +181,7 @@ export default async function HearingsPage({
               {item.caseLabel}
             </span>
           </span>,
-          formatDate(item.startsAt),
+          item.hasTime ? formatDate(item.startsAt, true) : formatDay(item.startsAt),
           [item.attorneyName, item.assistantName].filter(Boolean).join(" · ") ||
             "—",
           item.location ?? "—",

@@ -10,7 +10,7 @@ import { Pagination } from "@/components/pagination";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { SoftDeleteAction } from "@/components/soft-delete-action";
 import { getCurrentUser } from "@/lib/server-api";
-import { userSelectOptions } from "@/lib/user-options";
+import { legalProfessionalSelectOptions, userSelectOptions } from "@/lib/user-options";
 
 interface CaseList {
   items: Array<{
@@ -112,7 +112,7 @@ export default async function CasesPage({
                 name: "attorneyId",
                 label: "Advogado",
                 type: "select",
-                options: userSelectOptions(lookups.users, "ADVOGADO"),
+                options: legalProfessionalSelectOptions(lookups.users),
               },
               {
                 name: "entryDate",
