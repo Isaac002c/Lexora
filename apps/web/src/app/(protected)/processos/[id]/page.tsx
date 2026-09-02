@@ -31,7 +31,16 @@ interface CaseDetail {
   notes?: string;
   branch: { name: string };
   legalArea: { name: string; code: string };
-  parties: Array<{ client: { name: string } }>;
+  parties: Array<{
+    isPrimary: boolean;
+    client: {
+      name: string;
+      email?: string;
+      phone?: string;
+      birthDate?: string;
+      address?: Record<string, string>;
+    };
+  }>;
   assignments: Array<{ type: string; user: { id: string; name: string } }>;
   deadlines: Array<{
     id: string;
@@ -48,6 +57,30 @@ interface CaseDetail {
     items: Array<{ id: string; title: string; status: string; notes?: string }>;
   }>;
 }
+
+function formatAddress(address?: Record<string, string>) {
+  if (!address) return "";
+  const ignored = new Set(["cep", "zipCode", "postalCode"]);
+  return Object.entries(address)
+    .filter(([key, value]) => value && !ignored.has(key))
+    .map(([, value]) => value)
+    .join(", ");
+}
+
+function addressZipCode(address?: Record<string, string>) {
+  return address?.cep ?? address?.zipCode ?? address?.postalCode ?? "";
+}
+
+function calculateAge(birthDate?: string) {
+  if (!birthDate) return "";
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getUTCFullYear();
+  const month = today.getMonth() - birth.getUTCMonth();
+  if (month < 0 || (month === 0 && today.getDate() < birth.getUTCDate())) age--;
+  return String(Math.max(age, 0));
+}
+
 export default async function CaseDetailPage({
   params,
 }: {
@@ -64,6 +97,38 @@ export default async function CaseDetailPage({
   const canManageDeadlines = user?.permissions.includes("deadline.manage");
   const canManageChecklist = user?.permissions.includes("checklist.manage");
   const deadlineTypes = ["PETICAO_INICIAL", "AUDIENCIA", "RECURSO", "MANIFESTACAO", "ADMINISTRATIVO", "OUTRO"];
+  const primaryClient = item.parties.find((party) => party.isPrimary)?.client ?? item.parties[0]?.client;
+  const attorney = item.assignments.find((assignment) => assignment.type === "ATTORNEY")?.user;
+  const responsible = item.assignments.find((assignment) => assignment.type === "INTERNAL_OWNER")?.user ?? attorney;
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  const documentDefaults: Record<string, string> = {
+    attendance_date: today,
+    responsible_name: responsible?.name ?? user?.userName ?? "",
+    client_name: primaryClient?.name ?? "",
+    client_signature: primaryClient?.name ?? "",
+    applicant_signature: primaryClient?.name ?? "",
+    lawyer_signature: attorney?.name ?? "",
+    email: primaryClient?.email ?? "",
+    phone: primaryClient?.phone ?? "",
+    whatsapp: primaryClient?.phone ?? "",
+    birth_date: primaryClient?.birthDate?.slice(0, 10) ?? "",
+    age: calculateAge(primaryClient?.birthDate),
+    address: formatAddress(primaryClient?.address),
+    cep: addressZipCode(primaryClient?.address),
+    process_number: item.processNumber ?? "",
+    case_type: item.caseType,
+    opposing_party: item.opposingParty ?? "",
+    legal_area: item.legalArea.name,
+    filing_date: item.distributionDate?.slice(0, 10) ?? "",
+    initial_term: item.entryDate?.slice(0, 10) ?? "",
+    facts: item.notes ?? "",
+    facts_summary: item.notes ?? "",
+    case_story: item.notes ?? "",
+    procedural_stage: item.status.replaceAll("_", " "),
+    has_ongoing_case: item.processNumber ? "yes" : "",
+    has_judicial_case: item.processNumber ? "yes" : "",
+    demand_real_estate: item.legalArea.code === "IMOBILIARIO" ? "true" : "",
+  };
   return (
     <>
       <PageHeader
@@ -200,7 +265,11 @@ export default async function CaseDetailPage({
           </p>
         </CardContent>
       </Card>
-      <CaseAreaForms areaCode={item.legalArea.code} areaName={item.legalArea.name} />
+      <CaseAreaForms
+        areaCode={item.legalArea.code}
+        areaName={item.legalArea.name}
+        defaults={documentDefaults}
+      />
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <div className="mb-3 flex items-center justify-between gap-2">

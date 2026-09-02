@@ -1,4 +1,4 @@
-import { Download, FileText } from "lucide-react";
+import { Download, FilePenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,70 +7,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-interface AreaFormTemplate {
-  title: string;
-  description: string;
-  href: string;
-  downloadName: string;
-}
-
-const laborTemplates: AreaFormTemplate[] = [
-  {
-    title: "Ficha de atendimento trabalhista",
-    description: "Ficha completa para o primeiro atendimento e estudo do caso.",
-    href: "/formularios/trabalhista-ficha-atendimento.docx",
-    downloadName: "Ficha de atendimento - Trabalhista.docx",
-  },
-  {
-    title: "Lista de documentos trabalhistas",
-    description: "Relação de documentos necessários e dados de testemunhas.",
-    href: "/formularios/trabalhista-lista-documentos.docx",
-    downloadName: "Lista de documentos - Trabalhista.docx",
-  },
-];
-
-const civilTemplates: AreaFormTemplate[] = [
-  {
-    title: "Formulário de atendimento cível",
-    description:
-      "Formulário de triagem e avaliação inicial para demandas cíveis.",
-    href: "/formularios/civel-formulario-atendimento.docx",
-    downloadName: "Formulario de atendimento - Area civel.docx",
-  },
-  {
-    title: "Checklist de documentos cíveis",
-    description: "Documentos gerais e específicos para o ajuizamento da ação.",
-    href: "/formularios/civel-lista-documentos.docx",
-    downloadName: "Checklist de documentos - Area civel.docx",
-  },
-];
-
-const socialSecurityTemplates: AreaFormTemplate[] = [
-  {
-    title: "Formulário de atendimento previdenciário",
-    description:
-      "Triagem previdenciária para demandas administrativas e federais.",
-    href: "/formularios/previdenciario-federal-formulario-atendimento.docx",
-    downloadName: "Formulario de atendimento - Previdenciario e Federal.docx",
-  },
-];
-
-const templatesByArea: Record<string, AreaFormTemplate[]> = {
-  TRABALHISTA: laborTemplates,
-  CIVEL: civilTemplates,
-  JUIZADO_CIVEL: civilTemplates,
-  VARA_CIVEL: civilTemplates,
-  PREVIDENCIARIO: socialSecurityTemplates,
-  FEDERAL: socialSecurityTemplates,
-};
+import { DocumentFormDialog } from "@/features/processos/document-forms/document-form-dialog";
+import { templatesByArea } from "@/features/processos/document-forms/definitions";
 
 export function CaseAreaForms({
   areaCode,
   areaName,
+  defaults,
 }: {
   areaCode: string;
   areaName: string;
+  defaults: Record<string, string>;
 }) {
   const templates = templatesByArea[areaCode] ?? [];
   if (templates.length === 0) return null;
@@ -82,26 +29,27 @@ export function CaseAreaForms({
           Formulários da área
         </h2>
         <p className="text-muted-foreground text-sm">
-          Modelos em Word disponíveis para processos de {areaName}.
+          Preencha no sistema e baixe o Word pronto para processos de {areaName}.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         {templates.map((template) => (
-          <Card key={template.href} className="flex h-full flex-col">
+          <Card key={template.id} className="flex h-full flex-col">
             <CardHeader className="flex-row items-start gap-3 space-y-0 pb-3">
               <span className="bg-primary/10 text-primary rounded-lg p-2">
-                <FileText className="h-5 w-5" aria-hidden="true" />
+                <FilePenLine className="h-5 w-5" aria-hidden="true" />
               </span>
               <div className="min-w-0 space-y-1">
                 <CardTitle className="text-base">{template.title}</CardTitle>
                 <CardDescription>{template.description}</CardDescription>
               </div>
             </CardHeader>
-            <CardContent className="mt-auto">
+            <CardContent className="mt-auto flex flex-wrap gap-2">
+              <DocumentFormDialog template={template} defaults={defaults} />
               <Button asChild variant="outline" size="sm">
-                <a href={template.href} download={template.downloadName}>
+                <a href={template.sourceHref} download>
                   <Download className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Baixar DOCX
+                  Modelo em branco
                 </a>
               </Button>
             </CardContent>
