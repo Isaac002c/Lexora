@@ -90,11 +90,11 @@ export default async function CalendarPage({
     },
     {
       name: "startsAt",
-      label: "Início",
+      label: "Data e horário de início",
       type: "datetime-local" as const,
       required: true,
     },
-    { name: "endsAt", label: "Término", type: "datetime-local" as const },
+    { name: "endsAt", label: "Data e horário de término", type: "datetime-local" as const },
     { name: "allDay", label: "Dia inteiro", type: "checkbox" as const },
     {
       name: "branchId",
