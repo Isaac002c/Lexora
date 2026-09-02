@@ -5,7 +5,7 @@ import { AttendanceConvertPanel } from "@/components/attendance-convert-panel";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDay } from "@/lib/format";
+import { formatDate, formatDateTimeInput } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { apiFetch, getCurrentUser } from "@/lib/server-api";
 import { Timeline, type TimelineItem } from "@/features/historico/components/timeline";
@@ -48,7 +48,7 @@ export default async function AttendanceDetailPage({
   return (
     <>
       <PageHeader
-        eyebrow={`${item.branch.name} · ${formatDay(item.occurredAt)}`}
+        eyebrow={`${item.branch.name} · ${formatDate(item.occurredAt, true)}`}
         title={item.clientName}
         description="Detalhes da triagem, direcionamento e conversão."
         action={
@@ -69,10 +69,10 @@ export default async function AttendanceDetailPage({
                   },
                   {
                     name: "occurredAt",
-                    label: "Data",
-                    type: "date",
+                    label: "Data e horário",
+                    type: "datetime-local",
                     required: true,
-                    defaultValue: item.occurredAt.slice(0, 10),
+                    defaultValue: formatDateTimeInput(item.occurredAt),
                   },
                   {
                     name: "branchId",
@@ -158,6 +158,7 @@ export default async function AttendanceDetailPage({
           <CardContent className="text-sm">
             <p>{item.phone ?? "Sem telefone"}</p>
             <p>{item.email ?? "Sem e-mail"}</p>
+            <p className="mt-2 text-muted-foreground">Origem: {item.origin ?? "Não informada"}</p>
           </CardContent>
         </Card>
         <Card>

@@ -83,7 +83,7 @@ export default async function CalendarPage({
       label: "Tipo",
       type: "select" as const,
       required: true,
-      options: ["REUNIAO", "COMPROMISSO", "COBRANCA", "OUTRO"].map((x) => ({
+      options: ["ATENDIMENTO", "REUNIAO", "COMPROMISSO", "COBRANCA", "OUTRO"].map((x) => ({
         value: x,
         label: x,
       })),

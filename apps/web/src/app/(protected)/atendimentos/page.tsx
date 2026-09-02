@@ -6,7 +6,7 @@ import { SearchForm } from "@/components/search-form";
 import { StatusBadge } from "@/components/status-badge";
 import { AttendanceConvertPanel } from "@/components/attendance-convert-panel";
 import { Pagination } from "@/components/pagination";
-import { formatDay } from "@/lib/format";
+import { formatDate } from "@/lib/format";
 import { fetchData, type Lookups } from "@/lib/page-data";
 import { ModuleNav } from "@/features/shared/components/module-nav";
 import { ATTENDANCE_ORIGINS } from "@chronostek/contracts";
@@ -61,8 +61,8 @@ export default async function AttendancesPage({
               { name: "clientName", label: "Nome do cliente", required: true },
               {
                 name: "occurredAt",
-                label: "Data",
-                type: "date",
+                label: "Data e horário",
+                type: "datetime-local",
                 required: true,
               },
               {
@@ -114,7 +114,7 @@ export default async function AttendancesPage({
       <DataTable
         columns={[
           "Cliente",
-          "Data",
+          "Data e horário",
           "Filial",
           "Área",
           "Advogado",
@@ -126,7 +126,7 @@ export default async function AttendancesPage({
         emptyMessage={Object.entries(query).some(([k, v]) => k !== "page" && v) ? "Nenhum atendimento encontrado com os filtros aplicados." : "Nenhum atendimento registrado ainda. Use “Novo atendimento” para começar."}
         rows={data.items.map((item) => [
           <Link key={item.id} href={`/atendimentos/${item.id}`} className="font-medium text-cyan-600 hover:underline">{item.clientName}</Link>,
-          formatDay(item.occurredAt),
+          formatDate(item.occurredAt, true),
           item.branch.name,
           item.legalArea?.name ?? "—",
           item.attorney?.name ?? "—",

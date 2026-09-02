@@ -29,6 +29,16 @@ describe("#1 entrada de data sem horário (America/Sao_Paulo)", () => {
     expect(parsed.occurredAt.toISOString()).toBe("2026-06-30T17:30:00.000Z");
   });
 
+  it("interpreta datetime-local como horário de São Paulo", () => {
+    const parsed = attendanceCreateSchema.parse({
+      branchId: ids.branchId,
+      clientName: "Cliente Teste",
+      occurredAt: "2026-06-30T14:30",
+      origin: "Atendimento online",
+    });
+    expect(parsed.occurredAt.toISOString()).toBe("2026-06-30T17:30:00.000Z");
+  });
+
   it("aplica a mesma regra ao vencimento de prazo (Timestamptz tratado como data)", () => {
     const parsed = deadlineCreateSchema.parse({
       ...ids,
@@ -60,6 +70,16 @@ describe("#2 origem do atendimento como lista fechada", () => {
       origin: "Instagram",
     });
     expect(parsed.origin).toBe("Instagram");
+  });
+
+  it("aceita atendimento online", () => {
+    const parsed = attendanceCreateSchema.parse({
+      branchId: ids.branchId,
+      clientName: "Cliente Teste",
+      occurredAt: "2026-06-30T14:30",
+      origin: "Atendimento online",
+    });
+    expect(parsed.origin).toBe("Atendimento online");
   });
 
   it("rejeita texto livre fora da lista", () => {

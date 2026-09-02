@@ -16,6 +16,11 @@ function spDatePreprocess(value: unknown) {
     const trimmed = value.trim();
     if (trimmed === "") return undefined;
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return new Date(`${trimmed}T00:00:00-03:00`);
+    // `datetime-local` não envia fuso horário. A interface trabalha no horário
+    // de Brasília, então convertemos explicitamente antes de persistir.
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/.test(trimmed)) {
+      return new Date(`${trimmed}-03:00`);
+    }
     return trimmed;
   }
   return value;
@@ -33,7 +38,7 @@ export function optionalEnum<const T extends readonly [string, ...string[]]>(val
 // Canais de origem do atendimento (#2). Lista fechada: novos registros usam apenas
 // estes valores. Registros históricos com texto livre continuam sendo exibidos
 // normalmente (a validação só incide sobre gravações).
-export const ATTENDANCE_ORIGINS = ["WhatsApp", "Site", "Indicação", "Presencial", "Instagram"] as const;
+export const ATTENDANCE_ORIGINS = ["WhatsApp", "Site", "Indicação", "Presencial", "Atendimento online", "Instagram"] as const;
 
 export const listQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
