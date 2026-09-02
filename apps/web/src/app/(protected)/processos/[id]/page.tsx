@@ -12,6 +12,7 @@ import { ChecklistItemControl } from "@/components/checklist-item-control";
 import { deadlineTypeLabel } from "@/lib/deadline-labels";
 import { deadlineInternalState, internalDueAt, INTERNAL_STATE_LABELS } from "@chronostek/contracts";
 import { legalProfessionalSelectOptions, userSelectOptions } from "@/lib/user-options";
+import { CaseAreaForms } from "@/features/processos/components/case-area-forms";
 
 interface CaseDetail {
   id: string;
@@ -29,7 +30,7 @@ interface CaseDetail {
   lastProgressAt?: string;
   notes?: string;
   branch: { name: string };
-  legalArea: { name: string };
+  legalArea: { name: string; code: string };
   parties: Array<{ client: { name: string } }>;
   assignments: Array<{ type: string; user: { id: string; name: string } }>;
   deadlines: Array<{
@@ -199,6 +200,7 @@ export default async function CaseDetailPage({
           </p>
         </CardContent>
       </Card>
+      <CaseAreaForms areaCode={item.legalArea.code} areaName={item.legalArea.name} />
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <div className="mb-3 flex items-center justify-between gap-2">
