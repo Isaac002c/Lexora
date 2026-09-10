@@ -8,6 +8,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { DateField } from "./date-field";
+import { DateTimeField } from "./date-time-field";
 import { useWorkspaceTabs } from "./workspace-tabs";
 
 export interface FormField {
@@ -60,48 +61,52 @@ export function CreatePanel({
   const [filters, setFilters] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const field of fields)
-      if (typeof field.defaultValue === "string") initial[field.name] = field.defaultValue;
+      if (typeof field.defaultValue === "string")
+        initial[field.name] = field.defaultValue;
     return initial;
   });
   const router = useRouter();
 
-  const persist = useCallback(async (form: HTMLFormElement) => {
-    setSaving(true);
-    setError(undefined);
-    const data = new FormData(form);
-    const body: Record<string, unknown> = { ...fixedBody };
-    for (const field of fields) {
-      if (field.type === "checkbox")
-        body[field.name] = data.get(field.name) === "on";
-      else if (field.type === "multiselect")
-        body[field.name] = data.getAll(field.name).map(String);
-      else {
-        const value = data.get(field.name)?.toString();
-        if (value)
-          body[field.name] = field.type === "number" ? Number(value) : value;
+  const persist = useCallback(
+    async (form: HTMLFormElement) => {
+      setSaving(true);
+      setError(undefined);
+      const data = new FormData(form);
+      const body: Record<string, unknown> = { ...fixedBody };
+      for (const field of fields) {
+        if (field.type === "checkbox")
+          body[field.name] = data.get(field.name) === "on";
+        else if (field.type === "multiselect")
+          body[field.name] = data.getAll(field.name).map(String);
+        else {
+          const value = data.get(field.name)?.toString();
+          if (value)
+            body[field.name] = field.type === "number" ? Number(value) : value;
+        }
       }
-    }
-    const response = await fetch(endpoint, {
-      method,
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      const problem = (await response.json().catch(() => ({}))) as {
-        detail?: string;
-        title?: string;
-      };
-      setError(problem.detail ?? problem.title ?? "Não foi possível salvar.");
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const problem = (await response.json().catch(() => ({}))) as {
+          detail?: string;
+          title?: string;
+        };
+        setError(problem.detail ?? problem.title ?? "Não foi possível salvar.");
+        setSaving(false);
+        return false;
+      }
       setSaving(false);
-      return false;
-    }
-    setSaving(false);
-    setOpen(false);
-    setLocalDirty(false);
-    setDirty(false);
-    router.refresh();
-    return true;
-  }, [endpoint, fields, fixedBody, method, router, setDirty]);
+      setOpen(false);
+      setLocalDirty(false);
+      setDirty(false);
+      router.refresh();
+      return true;
+    },
+    [endpoint, fields, fixedBody, method, router, setDirty],
+  );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -110,7 +115,9 @@ export function CreatePanel({
 
   useEffect(() => {
     if (!open) return;
-    return registerSaveHandler(async () => formRef.current ? persist(formRef.current) : false);
+    return registerSaveHandler(async () =>
+      formRef.current ? persist(formRef.current) : false,
+    );
   }, [open, persist, registerSaveHandler]);
 
   function markDirty() {
@@ -120,7 +127,8 @@ export function CreatePanel({
   }
 
   function closePanel() {
-    if (dirty && !window.confirm("Descartar as alterações deste formulário?")) return;
+    if (dirty && !window.confirm("Descartar as alterações deste formulário?"))
+      return;
     setOpen(false);
     setLocalDirty(false);
     setDirty(false);
@@ -129,7 +137,14 @@ export function CreatePanel({
   return (
     <>
       {
-        <Button onClick={() => { setOpen(true); setLocalDirty(false); setDirty(false); }} className="gap-2">
+        <Button
+          onClick={() => {
+            setOpen(true);
+            setLocalDirty(false);
+            setDirty(false);
+          }}
+          className="gap-2"
+        >
           <Plus className="h-4 w-4" />
           {buttonLabel}
         </Button>
@@ -152,7 +167,13 @@ export function CreatePanel({
                 <X />
               </Button>
             </div>
-            <form ref={formRef} data-lexora-dirty-form onSubmit={submit} onChangeCapture={markDirty} className="grid gap-4 p-5 sm:grid-cols-2">
+            <form
+              ref={formRef}
+              data-lexora-dirty-form
+              onSubmit={submit}
+              onChangeCapture={markDirty}
+              className="grid gap-4 p-5 sm:grid-cols-2"
+            >
               {fields.map((field) => (
                 <div
                   key={field.name}
@@ -170,24 +191,49 @@ export function CreatePanel({
                       required={field.required}
                       defaultValue={String(field.defaultValue ?? "")}
                     />
-                  ) : field.type === "select" || field.type === "multiselect" ? (
+                  ) : field.type === "select" ||
+                    field.type === "multiselect" ? (
                     <select
-                      key={field.dependsOn ? `${field.name}:${filters[field.dependsOn] ?? ""}` : field.name}
+                      key={
+                        field.dependsOn
+                          ? `${field.name}:${filters[field.dependsOn] ?? ""}`
+                          : field.name
+                      }
                       id={field.name}
                       name={field.name}
                       multiple={field.type === "multiselect"}
                       required={field.required}
-                      defaultValue={field.type === "multiselect" ? (Array.isArray(field.defaultValue) ? field.defaultValue : []) : String(field.defaultValue ?? "")}
-                      onChange={(event) => setFilters((prev) => ({ ...prev, [field.name]: event.target.value }))}
-                      className={field.type === "multiselect" ? "border-input bg-background min-h-28 w-full rounded-md border px-3 py-2 text-sm" : "border-input bg-background h-10 w-full rounded-md border px-3 text-sm"}
+                      defaultValue={
+                        field.type === "multiselect"
+                          ? Array.isArray(field.defaultValue)
+                            ? field.defaultValue
+                            : []
+                          : String(field.defaultValue ?? "")
+                      }
+                      onChange={(event) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          [field.name]: event.target.value,
+                        }))
+                      }
+                      className={
+                        field.type === "multiselect"
+                          ? "border-input bg-background min-h-28 w-full rounded-md border px-3 py-2 text-sm"
+                          : "border-input bg-background h-10 w-full rounded-md border px-3 text-sm"
+                      }
                     >
                       {field.type !== "multiselect" && (
                         <option value="">
-                          {field.dependsOn && !filters[field.dependsOn] ? (field.dependsOnHint ?? "Selecione") : "Selecione"}
+                          {field.dependsOn && !filters[field.dependsOn]
+                            ? (field.dependsOnHint ?? "Selecione")
+                            : "Selecione"}
                         </option>
                       )}
                       {(field.dependsOn
-                        ? (field.options ?? []).filter((option) => option.parent === filters[field.dependsOn!])
+                        ? (field.options ?? []).filter(
+                            (option) =>
+                              option.parent === filters[field.dependsOn!],
+                          )
                         : field.options
                       )?.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -207,7 +253,22 @@ export function CreatePanel({
                     <DateField
                       name={field.name}
                       required={field.required}
-                      defaultValue={typeof field.defaultValue === "string" ? field.defaultValue : undefined}
+                      defaultValue={
+                        typeof field.defaultValue === "string"
+                          ? field.defaultValue
+                          : undefined
+                      }
+                    />
+                  ) : field.type === "datetime-local" ? (
+                    <DateTimeField
+                      name={field.name}
+                      label={field.label}
+                      required={field.required}
+                      defaultValue={
+                        typeof field.defaultValue === "string"
+                          ? field.defaultValue
+                          : undefined
+                      }
                     />
                   ) : (
                     <Input
@@ -228,11 +289,7 @@ export function CreatePanel({
                 </p>
               )}
               <div className="flex justify-end gap-2 sm:col-span-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={closePanel}
-                >
+                <Button type="button" variant="ghost" onClick={closePanel}>
                   Cancelar
                 </Button>
                 <Button disabled={saving}>

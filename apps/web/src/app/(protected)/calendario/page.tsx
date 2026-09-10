@@ -26,6 +26,26 @@ function key(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
+const saoPauloDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+function dateTimeInputValue(date: Date) {
+  const parts = Object.fromEntries(
+    saoPauloDateTimeFormatter
+      .formatToParts(date)
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
+}
+
 export default async function CalendarPage({
   searchParams,
 }: {
@@ -76,6 +96,10 @@ export default async function CalendarPage({
   }
   const link = (date: Date) =>
     `/calendario?${new URLSearchParams({ ...Object.fromEntries(Object.entries(query).filter((entry): entry is [string, string] => Boolean(entry[1]))), mode, date: key(date) })}`;
+  const startSuggestion = new Date(
+    Math.ceil(Date.now() / (30 * 60 * 1000)) * 30 * 60 * 1000,
+  );
+  const endSuggestion = new Date(startSuggestion.getTime() + 60 * 60 * 1000);
   const fields = [
     { name: "title", label: "Título", required: true },
     {
@@ -83,7 +107,13 @@ export default async function CalendarPage({
       label: "Tipo",
       type: "select" as const,
       required: true,
-      options: ["ATENDIMENTO", "REUNIAO", "COMPROMISSO", "COBRANCA", "OUTRO"].map((x) => ({
+      options: [
+        "ATENDIMENTO",
+        "REUNIAO",
+        "COMPROMISSO",
+        "COBRANCA",
+        "OUTRO",
+      ].map((x) => ({
         value: x,
         label: x,
       })),
@@ -93,8 +123,14 @@ export default async function CalendarPage({
       label: "Data e horário de início",
       type: "datetime-local" as const,
       required: true,
+      defaultValue: dateTimeInputValue(startSuggestion),
     },
-    { name: "endsAt", label: "Data e horário de término", type: "datetime-local" as const },
+    {
+      name: "endsAt",
+      label: "Data e horário de término",
+      type: "datetime-local" as const,
+      defaultValue: dateTimeInputValue(endSuggestion),
+    },
     { name: "allDay", label: "Dia inteiro", type: "checkbox" as const },
     {
       name: "branchId",
